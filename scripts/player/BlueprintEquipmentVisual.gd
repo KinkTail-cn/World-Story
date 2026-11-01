@@ -1,65 +1,86 @@
 extends Node3D
 
 const Design = preload("res://scripts/blueprint/BlueprintEquipment.gd")
-const SHADER = preload("res://shaders/character.gdshader")
+const Geometry = preload("res://scripts/blueprint/BlueprintGeometry.gd")
+const Materials = preload("res://scripts/blueprint/BlueprintMaterials.gd")
 var blueprint: Dictionary = {}
 var pieces: Array[MeshInstance3D] = []
+var cloth_materials: Array[ShaderMaterial] = []
+var cloth_scales: Array[float] = []
+var source_part_count: int = 0
+var icon_size: float = 0.40
 
 func build(data: Dictionary, character: Node3D = null) -> void:
 	_clear()
 	blueprint = data.duplicate(true)
-	var materials := {}
+	var groups := {}
+	var index := 0
+	for part in Design.active_voxels(data):
+		var bone := Geometry.anchor(part, str(data.get("category", "")))
+		var key := "%s:%s:%s:%s" % [bone, str(part.get("mat", 1)), Materials.tint(part).to_html(), str(part.get("surface", "solid"))]
+		if part.get("shape", "box") == "cloth":
+			key += ":cloth:" + str(index)
+		if not groups.has(key):
+			groups[key] = []
+		groups[key].append(part)
+		index += 1
+	source_part_count = index
 	var bounds := AABB()
 	var first := true
-	for voxel in Design.active_voxels(data):
-		var material_id := int(voxel.get("mat", 0))
-		if material_id < 1 or material_id > 8:
-			continue
-		if not materials.has(material_id):
-			var material := ShaderMaterial.new()
-			material.shader = SHADER
-			material.set_shader_parameter("base_color", Design.MATERIAL_COLORS[material_id - 1])
-			materials[material_id] = material
-		var extent: float = Design.Data.VOXEL_SIZE * Design.size_scale(int(voxel.get("size", 1)))
-		var pos := Design.character_position(data, voxel)
-		var mesh := BoxMesh.new()
-		mesh.size = Vector3.ONE * extent
+	for key in groups:
+		var parts: Array = groups[key]
+		var part: Dictionary = parts[0]
+		var category := str(data.get("category", ""))
+		var bone := Geometry.anchor(part, category)
 		var piece := MeshInstance3D.new()
-		piece.mesh = mesh
-		piece.material_override = materials[material_id]
+		piece.name = "Blueprint_" + bone + "_" + str(pieces.size())
+		piece.material_override = Materials.create(part)
+		if parts.size() == 1:
+			piece.mesh = Geometry.mesh(part)
+			piece.transform = Geometry.local_transform(part, category) if character != null else Geometry.character_transform(part, category)
+		else:
+			piece.mesh = _merged_mesh(parts, category, character != null)
+		if part.get("shape", "box") == "cloth":
+			cloth_materials.append(piece.material_override)
+			cloth_scales.append(float(part.get("cloth", {}).get("wind", 1.0)))
+			piece.custom_aabb = AABB(Vector3(-0.8, -1.3, -0.2), Vector3(1.6, 1.6, 1.7))
+			if character == null:
+				piece.material_override.set_shader_parameter("motion_scale", 0.0)
 		if character != null:
-			var attachment := _attachment(character, str(data.get("category", "")), pos)
-			attachment.node.add_child(piece)
-			piece.position = pos - Vector3(attachment.origin)
+			var parent: Node3D = character.get(bone)
+			parent.add_child(piece)
 		else:
 			add_child(piece)
-			piece.position = pos
+			var box: AABB = piece.transform * piece.mesh.get_aabb()
+			bounds = box if first else bounds.merge(box)
+			first = false
 		pieces.append(piece)
-		var box := AABB(pos - Vector3.ONE * extent * 0.5, Vector3.ONE * extent)
-		bounds = box if first else bounds.merge(box)
-		first = false
 	if character == null and not first:
-		var fit: float = 0.40 / maxf(bounds.size.x, maxf(bounds.size.y, bounds.size.z))
+		var fit := icon_size / maxf(bounds.size.x, maxf(bounds.size.y, bounds.size.z))
 		for piece in pieces:
 			piece.position = (piece.position - bounds.get_center()) * fit
 			piece.scale = Vector3.ONE * fit
 
-func _attachment(character: Node3D, category: String, pos: Vector3) -> Dictionary:
-	var right := pos.x >= 0.0
-	match category:
-		"头部装备": return {"node": character.head, "origin": Vector3(0, 1.575, 0)}
-		"手套":
-			return {"node": character.right_forearm if right else character.left_forearm, "origin": Vector3(0.3375 if right else -0.3375, 1.01, 0)}
-		"裤甲", "鞋子":
-			var lower := category == "鞋子" or pos.y < 0.335
-			var bone: Node3D = (character.right_lower_leg if right else character.left_lower_leg) if lower else (character.right_leg if right else character.left_leg)
-			return {"node": bone, "origin": Vector3(0.1125 if right else -0.1125, 0.335 if lower else 0.675, 0)}
-		"盔甲":
-			if absf(pos.x) > 0.26:
-				var lower := pos.y < 1.01
-				var bone: Node3D = (character.right_forearm if right else character.left_forearm) if lower else (character.right_arm if right else character.left_arm)
-				return {"node": bone, "origin": Vector3(0.3375 if right else -0.3375, 1.01 if lower else 1.35, 0)}
-	return {"node": character.body, "origin": Vector3.ZERO}
+func _merged_mesh(parts: Array, category: String, worn: bool) -> ArrayMesh:
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for part in parts:
+		var mesh: Mesh = Geometry.mesh(part)
+		var arrays: Array = mesh.surface_get_arrays(0)
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX] if arrays[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
+		var transform := Geometry.local_transform(part, category) if worn else Geometry.character_transform(part, category)
+		for corner in range(indices.size() if not indices.is_empty() else vertices.size()):
+			var index: int = indices[corner] if not indices.is_empty() else corner
+			surface.set_normal((transform.basis * normals[index]).normalized())
+			surface.set_uv(Vector2.ZERO)
+			surface.add_vertex(transform * vertices[index])
+	return surface.commit()
+
+func set_wind(strength: float) -> void:
+	for index in cloth_materials.size():
+		cloth_materials[index].set_shader_parameter("wind_strength", strength * cloth_scales[index])
 
 func hide_pieces() -> void:
 	for piece in pieces:
@@ -72,6 +93,9 @@ func _clear() -> void:
 			piece.visible = false
 			piece.queue_free()
 	pieces.clear()
+	cloth_materials.clear()
+	cloth_scales.clear()
+	source_part_count = 0
 
 func _exit_tree() -> void:
 	_clear()

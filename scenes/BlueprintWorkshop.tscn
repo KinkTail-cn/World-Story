@@ -176,6 +176,7 @@ text = "三维蓝图工坊"
 [node name="Status" type="Label" parent="TopBar"]
 layout_mode = 2
 size_flags_horizontal = 3
+clip_text = true
 theme_override_colors/font_color = Color(0.9, 0.94, 0.98, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.5)
 theme_override_constants/shadow_offset_x = 1
@@ -241,15 +242,34 @@ clip_text = true
 layout_mode = 2
 text = "＋ 新建设计"
 
-[node name="CategoryScroll" type="ScrollContainer" parent="LeftDrawer/Panel/Margin/VBox"]
+[node name="OfficialDesigns" type="OptionButton" parent="LeftDrawer/Panel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "载入官方装备蓝图"
+clip_text = true
+tooltip_text = "打开官方装备的独立副本，所有部件都可以继续编辑。"
+
+[node name="CategorySelector" type="OptionButton" parent="LeftDrawer/Panel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+clip_text = true
+tooltip_text = "选择要编辑或制作的装备部位"
+
+[node name="PartsTitle" type="Label" parent="LeftDrawer/Panel/Margin/VBox"]
+layout_mode = 2
+text = "部件列表 · Ctrl / Shift 多选"
+theme_override_font_sizes/font_size = 13
+[node name="PartList" type="ItemList" parent="LeftDrawer/Panel/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 150)
 layout_mode = 2
 size_flags_vertical = 3
-horizontal_scroll_mode = 0
-
-[node name="CategoryList" type="VBoxContainer" parent="LeftDrawer/Panel/Margin/VBox/CategoryScroll"]
+select_mode = 1
+allow_reselect = true
+[node name="PreviewPose" type="OptionButton" parent="LeftDrawer/Panel/Margin/VBox"]
+unique_name_in_owner = true
 layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 6
+tooltip_text = "播放动作时暂停编辑；选择静止返回建模。"
 
 [node name="LeftToggleBtn" type="Button" parent="LeftDrawer"]
 custom_minimum_size = Vector2(28, 64)
@@ -642,3 +662,79 @@ theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 16
 text = "制作装备 → 背包"
 disabled = true
+
+[node name="EditorToolbar" type="HFlowContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_right = 1.0
+offset_left = 302.0
+offset_top = 68.0
+offset_right = -320.0
+offset_bottom = 144.0
+theme_override_constants/h_separation = 5
+theme_override_constants/v_separation = 5
+[node name="Add" type="Button" parent="EditorToolbar"]
+custom_minimum_size = Vector2(64, 34)
+layout_mode = 2
+focus_mode = 0
+text = "放置 B"
+[node name="Select" type="Button" parent="EditorToolbar"]
+custom_minimum_size = Vector2(64, 34)
+layout_mode = 2
+focus_mode = 0
+text = "选择 V"
+[node name="Paint" type="Button" parent="EditorToolbar"]
+custom_minimum_size = Vector2(64, 34)
+layout_mode = 2
+focus_mode = 0
+text = "涂色 C"
+[node name="Erase" type="Button" parent="EditorToolbar"]
+custom_minimum_size = Vector2(64, 34)
+layout_mode = 2
+focus_mode = 0
+text = "删除 X"
+[node name="Undo" type="Button" parent="EditorToolbar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(54, 34)
+layout_mode = 2
+focus_mode = 0
+text = "撤销"
+tooltip_text = "Ctrl+Z"
+[node name="Redo" type="Button" parent="EditorToolbar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(54, 34)
+layout_mode = 2
+focus_mode = 0
+text = "重做"
+tooltip_text = "Ctrl+Y / Ctrl+Shift+Z"
+[node name="Frame" type="Button" parent="EditorToolbar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(54, 34)
+layout_mode = 2
+focus_mode = 0
+text = "聚焦 F"
+
+[node name="EditorHelp" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 300.0
+offset_top = -46.0
+offset_right = -318.0
+offset_bottom = -8.0
+theme_override_colors/font_color = Color(0.87, 0.91, 0.93, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.8)
+theme_override_font_sizes/font_size = 12
+text = "中键/Alt观察 · Shift+中键平移 · 滚轮缩放\nV选择 · Ctrl多选 · 拖空白框选 · Ctrl+Z撤销"
+autowrap_mode = 2
+
+[node name="UnsavedDialog" type="ConfirmationDialog" parent="."]
+unique_name_in_owner = true
+title = "保存蓝图修改？"
+initial_position = 2
+size = Vector2i(420, 160)
+dialog_text = "当前蓝图有未保存的修改。"
+ok_button_text = "保存并继续"
+cancel_button_text = "取消"

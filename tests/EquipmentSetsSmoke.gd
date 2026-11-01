@@ -57,12 +57,12 @@ func _run() -> void:
 		await process_frame
 		for slot in range(7):
 			var visual = character.equipment_visuals.set_visuals[slot]
-			check(visual != null and visual.item_id == ids[slot] and visual.pieces.size() == Models.parts(ids[slot]).size(), "Worn geometry matches item geometry for " + str(ids[slot]))
+			check(visual != null and visual.item_id == ids[slot] and visual.source_part_count == Models.parts(ids[slot]).size(), "Worn geometry includes every source part for " + str(ids[slot]))
 			check(character.equipment_visuals.pieces[slot].all(func(piece): return not piece.visible), "New outfit hides the replaced base piece")
 			var correct_bones := true
-			var parts: Array[Dictionary] = Models.parts(ids[slot])
-			for index in range(parts.size()):
-				correct_bones = correct_bones and visual.pieces[index].get_parent() == character.get(parts[index].bone)
+			var bones: Array = Models.parts(ids[slot]).map(func(part: Dictionary): return character.get(part.bone))
+			for piece in visual.pieces:
+				correct_bones = correct_bones and bones.has(piece.get_parent())
 			check(correct_bones, "Every mesh follows its animated body part")
 		var original = character.equipment_visuals.set_visuals[0]
 		character.equipment_visuals.apply_equipment(ids)

@@ -335,6 +335,6 @@ func _decode(value, field: String = ""):
 		return result
 	# JSON numbers are floats. Restore discrete item/voxel fields while keeping
 	# physical centers and other continuous values as floats.
-	if value is float and _integer(value) and field in ["id", "count", "grid_size", "mat", "size", "pos", "cells"]:
+	if value is float and _integer(value) and field in ["id", "count", "grid_size", "mat", "size", "pos", "cells", "schema_version", "source_item_id", "emblem"]:
 		return int(value)
 	return value

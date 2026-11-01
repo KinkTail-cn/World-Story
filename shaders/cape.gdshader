@@ -5,6 +5,7 @@ uniform vec4 base_color : source_color = vec4(0.784, 0.373, 0.533, 1.0);
 uniform float wind_strength = 0.0;
 uniform vec4 trim_color : source_color = vec4(0.93, 0.80, 0.52, 1.0);
 uniform int emblem = 0;
+uniform float motion_scale = 1.0;
 
 float star_mark(vec2 point, vec2 center, float scale) {
 	vec2 p = abs((point - center) / scale);
@@ -26,16 +27,16 @@ void vertex() {
 	float total_wave = (main_wave + flutter + cross_wave) * (0.025 + wind_strength * 0.11);
 	
 	// Z轴后扬与波浪：随着奔跑速度激增，披风优美大幅向后舒展掠飞
-	VERTEX.z += tail * (0.035 + wind_strength * 0.72 + total_wave);
+	VERTEX.z += tail * (0.035 + wind_strength * 0.72 + total_wave) * motion_scale;
 	
 	// X轴横向摆动与风阻侧向展开：跑动时气流使披风两侧轻微展翼
 	float wing_spread = (UV.x - 0.5) * tail * wind_strength * 0.18;
 	float lateral_sway = sin(TIME * 3.6 - UV.y * 4.8) * (0.015 + wind_strength * 0.055);
-	VERTEX.x += wing_spread + tail * lateral_sway;
+	VERTEX.x += (wing_spread + tail * lateral_sway) * motion_scale;
 	
 	// Y轴垂直托升与起伏：奔跑时高速气流在披风下方产生空气动压托力，使下摆飘扬抬升
 	float lift = tail * (wind_strength * 0.32 + (main_wave * 0.5 + flutter * 0.25) * wind_strength * 0.08);
-	VERTEX.y += lift;
+	VERTEX.y += lift * motion_scale;
 }
 
 void fragment() {

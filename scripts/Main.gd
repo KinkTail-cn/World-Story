@@ -172,7 +172,11 @@ func _input(event: InputEvent) -> void:
 		return
 	if hud.blueprint_workshop.visible or hud.notebook_panel.visible:
 		if event.is_action_pressed("pause"):
-			hud.close_design()
+			if hud.blueprint_workshop.visible:
+				if not hud.blueprint_workshop.cancel_edit():
+					hud.blueprint_workshop.request_close()
+			else:
+				hud.close_design()
 			get_viewport().set_input_as_handled()
 		return
 	if hud.inventory_panel.visible and hud.inventory_panel.is_editing_text() and not event.is_action_pressed("pause"):
@@ -290,12 +294,16 @@ func _refresh_inventory() -> void:
 		player.visual.equipment_visuals.apply_equipment(inventory.equipment, inventory.equipment_items)
 
 func _on_blueprint_saved(_blueprint: Dictionary) -> void:
+	var success: bool
 	if editing_document != null:
-		hud.show_message("蓝图已写入这张图纸 · F5 保存世界进度")
-		hud.blueprint_workshop.status_label.text = "蓝图已写入这张图纸 · F5 保存世界进度"
-	elif not blueprint_manager.save_json():
+		success = save_progress()
+		hud.blueprint_workshop.status_label.text = "图纸设计与世界进度已保存" if success else "保存失败，请检查存储空间"
+	else:
+		success = blueprint_manager.save_json()
+	if not success:
 		hud.show_message("蓝图库保存失败，请检查存储空间")
 		hud.blueprint_workshop.status_label.text = "蓝图库保存失败，请检查存储空间"
+	hud.blueprint_workshop.set_save_result(success)
 
 func _resume() -> void:
 	get_tree().paused = false

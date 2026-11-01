@@ -91,6 +91,8 @@ func update_motion(delta: float, speed: float, airborne: bool, swimming: bool, s
 	cape_material.set_shader_parameter("wind_strength", cape_wind)
 	if is_instance_valid(set_visuals[5]):
 		set_visuals[5].set_wind(cape_wind)
+	if is_instance_valid(custom_visuals[5]):
+		custom_visuals[5].set_wind(cape_wind)
 
 func _piece(slot: int, parent: Node3D, pos: Vector3, size: Vector3, tint: Color = Color.TRANSPARENT) -> void:
 	var mesh := BoxMesh.new()

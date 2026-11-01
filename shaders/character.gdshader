@@ -2,10 +2,11 @@ shader_type spatial;
 render_mode specular_disabled;
 
 uniform vec4 base_color : source_color = vec4(1.0);
+uniform float surface_roughness = 0.8;
 
 void fragment() {
 	ALBEDO = pow(base_color.rgb, vec3(2.2));
-	ROUGHNESS = 0.8;
+	ROUGHNESS = surface_roughness;
 }
 
 void light() {
