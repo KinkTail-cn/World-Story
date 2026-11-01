@@ -1,0 +1,677 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/HUD.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/ui/BlockIcon.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/ui/FunctionWheel.gd" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/InventoryPanel.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/BlueprintWorkshop.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://scenes/NotebookPanel.tscn" id="6"]
+[ext_resource type="PackedScene" path="res://scenes/LoadingScreen.tscn" id="7"]
+
+[sub_resource type="StyleBoxFlat" id="HudBadge"]
+bg_color = Color(0.24, 0.16, 0.10, 0.85)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.78, 0.60, 0.35, 0.85)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+shadow_color = Color(0.12, 0.06, 0.02, 0.25)
+shadow_size = 6
+
+[sub_resource type="StyleBoxFlat" id="ToastPill"]
+bg_color = Color(0.95, 0.90, 0.80, 0.96)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.68, 0.50, 0.28, 1)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+shadow_color = Color(0.18, 0.10, 0.04, 0.35)
+shadow_size = 8
+
+[sub_resource type="StyleBoxFlat" id="DockPanel"]
+bg_color = Color(0.25, 0.16, 0.10, 0.90)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.72, 0.54, 0.32, 0.95)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+shadow_color = Color(0.15, 0.08, 0.04, 0.35)
+shadow_size = 10
+
+[sub_resource type="StyleBoxFlat" id="ProgressBack"]
+bg_color = Color(0.20, 0.14, 0.08, 0.85)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.68, 0.50, 0.30, 0.6)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="ProgressFill"]
+bg_color = Color(0.96, 0.74, 0.26, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="PauseCard"]
+bg_color = Color(0.95, 0.90, 0.80, 0.98)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.48, 0.32, 0.18, 1)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+shadow_color = Color(0.18, 0.10, 0.04, 0.45)
+shadow_size = 28
+shadow_offset = Vector2(0, 8)
+
+[sub_resource type="StyleBoxFlat" id="PauseBtn"]
+content_margin_left = 20.0
+content_margin_top = 12.0
+content_margin_right = 20.0
+content_margin_bottom = 12.0
+bg_color = Color(0.42, 0.28, 0.17, 0.95)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.78, 0.60, 0.32, 0.9)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+shadow_color = Color(0.15, 0.08, 0.04, 0.25)
+shadow_size = 4
+
+[sub_resource type="StyleBoxFlat" id="PauseBtnHover"]
+content_margin_left = 20.0
+content_margin_top = 12.0
+content_margin_right = 20.0
+content_margin_bottom = 12.0
+bg_color = Color(0.55, 0.38, 0.23, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.88, 0.45, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+shadow_color = Color(0.96, 0.82, 0.42, 0.45)
+shadow_size = 10
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.98, 0.88, 0.52, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[node name="HUD" type="CanvasLayer"]
+process_mode = 3
+script = ExtResource("1")
+
+[node name="Root" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 1, 0.95, 1)
+
+[node name="Underwater" type="ColorRect" parent="Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.03, 0.32, 0.48, 0.22)
+
+[node name="TopLeftPanel" type="PanelContainer" parent="Root"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 20.0
+offset_right = 380.0
+offset_bottom = 124.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("HudBadge")
+
+[node name="Margin" type="MarginContainer" parent="Root/TopLeftPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 10
+
+[node name="TopLeft" type="VBoxContainer" parent="Root/TopLeftPanel/Margin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="Title" type="Label" parent="Root/TopLeftPanel/Margin/TopLeft"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.98, 0.95, 0.88, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.6)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 20
+text = "世界物语 · WORLD STORY"
+
+[node name="Location" type="Label" parent="Root/TopLeftPanel/Margin/TopLeft"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.85, 0.58, 1)
+theme_override_font_sizes/font_size = 14
+text = "晴风岛  ·  建造者的启程之地"
+
+[node name="Stats" type="Label" parent="Root/TopLeftPanel/Margin/TopLeft"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.92, 0.95, 0.92)
+theme_override_font_sizes/font_size = 13
+text = "已采集 0  /  已建造 0"
+
+[node name="TopLeft" type="VBoxContainer" parent="Root"]
+visible = false
+layout_mode = 0
+offset_left = 28.0
+offset_top = 20.0
+offset_right = 28.0
+offset_bottom = 20.0
+
+[node name="Title" type="Label" parent="Root/TopLeft"]
+layout_mode = 2
+
+[node name="Location" type="Label" parent="Root/TopLeft"]
+layout_mode = 2
+
+[node name="Stats" type="Label" parent="Root/TopLeft"]
+layout_mode = 2
+
+[node name="TopRightPanel" type="PanelContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -390.0
+offset_top = 20.0
+offset_right = -28.0
+offset_bottom = 124.0
+grow_horizontal = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("HudBadge")
+
+[node name="Margin" type="MarginContainer" parent="Root/TopRightPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 10
+
+[node name="TopRight" type="VBoxContainer" parent="Root/TopRightPanel/Margin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="Mode" type="Label" parent="Root/TopRightPanel/Margin/TopRight"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.98, 0.95, 0.88, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.6)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 16
+text = "自由探索 · 第三人称"
+horizontal_alignment = 2
+
+[node name="Keys" type="Label" parent="Root/TopRightPanel/Margin/TopRight"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.85, 0.58, 1)
+theme_override_font_sizes/font_size = 13
+text = "B 背包   P 蓝图   G 功能   V 视角   ESC 暂停"
+horizontal_alignment = 2
+
+[node name="Depth" type="Label" parent="Root/TopRightPanel/Margin/TopRight"]
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.68, 0.90, 1.0, 1)
+theme_override_font_sizes/font_size = 13
+text = "潜水深度 0.0 米"
+horizontal_alignment = 2
+
+[node name="Function" type="Label" parent="Root/TopRightPanel/Margin/TopRight"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.92, 0.95, 0.92)
+theme_override_font_sizes/font_size = 13
+text = "当前功能：挖掘 / 建造"
+horizontal_alignment = 2
+
+[node name="TopRight" type="VBoxContainer" parent="Root"]
+visible = false
+layout_mode = 0
+
+[node name="Mode" type="Label" parent="Root/TopRight"]
+layout_mode = 2
+
+[node name="Keys" type="Label" parent="Root/TopRight"]
+layout_mode = 2
+
+[node name="Depth" type="Label" parent="Root/TopRight"]
+layout_mode = 2
+
+[node name="Function" type="Label" parent="Root/TopRight"]
+layout_mode = 2
+
+[node name="Aim" type="Control" parent="Root"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Crosshair" type="Label" parent="Root/Aim"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -16.0
+offset_top = -20.0
+offset_right = 16.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 0.96, 0.95)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.6)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 26
+text = "＋"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Target" type="Label" parent="Root/Aim"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -180.0
+offset_top = 26.0
+offset_right = 180.0
+offset_bottom = 54.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 0.98, 0.92, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 14
+text = "瞄准方块开始建造"
+horizontal_alignment = 1
+
+[node name="Progress" type="ProgressBar" parent="Root/Aim"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -70.0
+offset_top = 58.0
+offset_right = 70.0
+offset_bottom = 68.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/background = SubResource("ProgressBack")
+theme_override_styles/fill = SubResource("ProgressFill")
+show_percentage = false
+
+[node name="Toast" type="Label" parent="Root"]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -340.0
+offset_top = 138.0
+offset_right = 340.0
+offset_bottom = 180.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.24, 0.16, 0.10, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("ToastPill")
+text = "欢迎来到晴风岛"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Bottom" type="VBoxContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -440.0
+offset_top = -188.0
+offset_right = 440.0
+offset_bottom = -18.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="Selected" type="Label" parent="Root/Bottom"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.98, 0.95, 0.88, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 16
+text = "手持：草方块 · 创造模式 / 无限建材"
+horizontal_alignment = 1
+
+[node name="HotbarDock" type="PanelContainer" parent="Root/Bottom"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("DockPanel")
+
+[node name="Margin" type="MarginContainer" parent="Root/Bottom/HotbarDock"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="Hotbar" type="HBoxContainer" parent="Root/Bottom/HotbarDock/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="Slot1" type="Button" parent="Root/Bottom/HotbarDock/Margin/Hotbar"]
+custom_minimum_size = Vector2(92, 92)
+layout_mode = 2
+focus_mode = 0
+
+[node name="Icon" type="Control" parent="Root/Bottom/HotbarDock/Margin/Hotbar/Slot1"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2")
+block_id = 1
+
+[node name="Slot2" type="Button" parent="Root/Bottom/HotbarDock/Margin/Hotbar"]
+custom_minimum_size = Vector2(92, 92)
+layout_mode = 2
+focus_mode = 0
+
+[node name="Icon" type="Control" parent="Root/Bottom/HotbarDock/Margin/Hotbar/Slot2"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2")
+block_id = 2
+
+[node name="Slot3" type="Button" parent="Root/Bottom/HotbarDock/Margin/Hotbar"]
+custom_minimum_size = Vector2(92, 92)
+layout_mode = 2
+focus_mode = 0
+
+[node name="Icon" type="Control" parent="Root/Bottom/HotbarDock/Margin/Hotbar/Slot3"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2")
+block_id = 3
+
+[node name="Slot4" type="Button" parent="Root/Bottom/HotbarDock/Margin/Hotbar"]
+custom_minimum_size = Vector2(92, 92)
+layout_mode = 2
+focus_mode = 0
+
+[node name="Icon" type="Control" parent="Root/Bottom/HotbarDock/Margin/Hotbar/Slot4"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2")
+block_id = 4
+
+[node name="Slot5" type="Button" parent="Root/Bottom/HotbarDock/Margin/Hotbar"]
+custom_minimum_size = Vector2(92, 92)
+layout_mode = 2
+focus_mode = 0
+
+[node name="Icon" type="Control" parent="Root/Bottom/HotbarDock/Margin/Hotbar/Slot5"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2")
+block_id = 5
+
+[node name="Slot6" type="Button" parent="Root/Bottom/HotbarDock/Margin/Hotbar"]
+custom_minimum_size = Vector2(92, 92)
+layout_mode = 2
+focus_mode = 0
+
+[node name="Icon" type="Control" parent="Root/Bottom/HotbarDock/Margin/Hotbar/Slot6"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2")
+block_id = 6
+
+[node name="Slot7" type="Button" parent="Root/Bottom/HotbarDock/Margin/Hotbar"]
+custom_minimum_size = Vector2(92, 92)
+layout_mode = 2
+focus_mode = 0
+
+[node name="Icon" type="Control" parent="Root/Bottom/HotbarDock/Margin/Hotbar/Slot7"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2")
+block_id = 7
+
+[node name="Slot8" type="Button" parent="Root/Bottom/HotbarDock/Margin/Hotbar"]
+custom_minimum_size = Vector2(92, 92)
+layout_mode = 2
+focus_mode = 0
+
+[node name="Icon" type="Control" parent="Root/Bottom/HotbarDock/Margin/Hotbar/Slot8"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2")
+block_id = 8
+
+[node name="Hotbar" type="HBoxContainer" parent="Root/Bottom"]
+visible = false
+layout_mode = 2
+
+[node name="Help" type="Label" parent="Root/Bottom"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.95, 0.85)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 13
+text = "WASD 移动  ·  Shift 冲刺  ·  空格 跳跃  ·  长按左键 采集  ·  右键 建造  ·  1-8 / 滚轮 选材"
+horizontal_alignment = 1
+
+[node name="FunctionWheel" type="Control" parent="Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+script = ExtResource("3")
+
+[node name="InventoryPanel" parent="Root" instance=ExtResource("4")]
+
+[node name="BlueprintWorkshop" parent="Root" instance=ExtResource("5")]
+
+[node name="NotebookPanel" parent="Root" instance=ExtResource("6")]
+
+[node name="Pause" type="ColorRect" parent="Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.08, 0.14, 0.18, 0.68)
+
+[node name="Panel" type="PanelContainer" parent="Root/Pause"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -250.0
+offset_top = -230.0
+offset_right = 250.0
+offset_bottom = 230.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("PauseCard")
+
+[node name="Margin" type="MarginContainer" parent="Root/Pause/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 28
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 28
+
+[node name="Content" type="VBoxContainer" parent="Root/Pause/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 18
+alignment = 1
+
+[node name="Title" type="Label" parent="Root/Pause/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.30, 0.18, 0.08, 1)
+theme_override_font_sizes/font_size = 28
+text = "歇一歇 · 冒险暂停"
+horizontal_alignment = 1
+
+[node name="Description" type="Label" parent="Root/Pause/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.48, 0.32, 0.18, 1)
+theme_override_font_sizes/font_size = 14
+text = "《世界物语》晴风岛冒险探索中\n建造你的第一座海岛小屋，或漫步整座晴风岛。"
+horizontal_alignment = 1
+
+[node name="Resume" type="Button" parent="Root/Pause/Panel/Margin/Content"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.98, 0.95, 0.88, 1)
+theme_override_colors/font_hover_color = Color(1, 0.96, 0.75, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("PauseBtn")
+theme_override_styles/hover = SubResource("PauseBtnHover")
+text = "继续冒险"
+
+[node name="Restart" type="Button" parent="Root/Pause/Panel/Margin/Content"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.98, 0.95, 0.88, 1)
+theme_override_colors/font_hover_color = Color(1, 0.96, 0.75, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("PauseBtn")
+theme_override_styles/hover = SubResource("PauseBtnHover")
+text = "重新生成岛屿"
+
+[node name="Quit" type="Button" parent="Root/Pause/Panel/Margin/Content"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.98, 0.95, 0.88, 1)
+theme_override_colors/font_hover_color = Color(1, 0.96, 0.75, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("PauseBtn")
+theme_override_styles/hover = SubResource("PauseBtnHover")
+text = "退出游戏"
+
+[node name="Content" type="VBoxContainer" parent="Root/Pause/Panel"]
+visible = false
+layout_mode = 2
+
+[node name="Resume" type="Button" parent="Root/Pause/Panel/Content"]
+layout_mode = 2
+
+[node name="Restart" type="Button" parent="Root/Pause/Panel/Content"]
+layout_mode = 2
+
+[node name="Quit" type="Button" parent="Root/Pause/Panel/Content"]
+layout_mode = 2
+
+[node name="LoadingScreen" parent="." instance=ExtResource("7")]
+visible = true

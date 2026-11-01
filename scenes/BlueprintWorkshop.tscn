@@ -1,0 +1,644 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/BlueprintWorkshop.gd" id="1"]
+
+[sub_resource type="Gradient" id="StudioGradient"]
+offsets = PackedFloat32Array(0, 0.45, 1)
+colors = PackedColorArray(0.18, 0.25, 0.34, 1, 0.12, 0.17, 0.23, 1, 0.07, 0.09, 0.12, 1)
+
+[sub_resource type="GradientTexture2D" id="StudioBackdropTex"]
+gradient = SubResource("StudioGradient")
+fill = 1
+fill_from = Vector2(0.5, 0.46)
+fill_to = Vector2(0.9, 0.9)
+
+[sub_resource type="StyleBoxFlat" id="BgDark"]
+bg_color = Color(0.06, 0.08, 0.10, 0.75)
+
+[sub_resource type="StyleBoxFlat" id="PanelGlass"]
+bg_color = Color(0.95, 0.91, 0.82, 0.96)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.56, 0.40, 0.24, 1)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+shadow_color = Color(0.15, 0.08, 0.04, 0.28)
+shadow_size = 12
+
+[sub_resource type="StyleBoxFlat" id="GizmoDisc"]
+bg_color = Color(0.93, 0.87, 0.76, 0.95)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.72, 0.54, 0.28, 1)
+corner_radius_top_left = 55
+corner_radius_top_right = 55
+corner_radius_bottom_right = 55
+corner_radius_bottom_left = 55
+shadow_color = Color(0.18, 0.10, 0.05, 0.25)
+shadow_size = 8
+
+[sub_resource type="StyleBoxFlat" id="DrawerBtn"]
+bg_color = Color(0.46, 0.30, 0.18, 0.96)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.85, 0.68, 0.38, 0.85)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0, 0, 0, 0.2)
+shadow_size = 4
+
+[sub_resource type="StyleBoxFlat" id="ItemBtnNormal"]
+bg_color = Color(0.92, 0.86, 0.76, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.74, 0.62, 0.48, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="ItemBtnActive"]
+bg_color = Color(0.99, 0.94, 0.80, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.88, 0.65, 0.24, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0.88, 0.65, 0.24, 0.35)
+shadow_size = 6
+
+[sub_resource type="StyleBoxFlat" id="ActionBtn"]
+bg_color = Color(0.48, 0.32, 0.20, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.85, 0.68, 0.38, 0.9)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0, 0, 0, 0.18)
+shadow_size = 4
+
+[sub_resource type="Theme" id="Theme_Main"]
+Label/colors/font_color = Color(0.24, 0.16, 0.10, 1)
+Label/font_sizes/font_size = 14
+Button/colors/font_color = Color(0.24, 0.18, 0.12, 1)
+Button/colors/font_hover_color = Color(0.24, 0.18, 0.12, 1)
+Button/colors/font_pressed_color = Color(0.24, 0.18, 0.12, 1)
+Button/styles/normal = SubResource("ItemBtnNormal")
+Button/styles/hover = SubResource("ItemBtnActive")
+Button/styles/pressed = SubResource("ItemBtnActive")
+CheckButton/colors/font_color = Color(0.24, 0.18, 0.12, 1)
+CheckButton/colors/font_hover_color = Color(0.24, 0.18, 0.12, 1)
+CheckButton/colors/font_pressed_color = Color(0.24, 0.18, 0.12, 1)
+
+[node name="BlueprintWorkshop" type="Control"]
+process_mode = 3
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+visible = false
+script = ExtResource("1")
+theme = SubResource("Theme_Main")
+
+[node name="Dim" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("BgDark")
+
+[node name="StudioBackdrop" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = SubResource("StudioBackdropTex")
+expand_mode = 1
+
+[node name="PreviewContainer" type="SubViewportContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+stretch = true
+
+[node name="TopBar" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 24.0
+offset_top = 14.0
+offset_right = -24.0
+offset_bottom = 54.0
+grow_horizontal = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="TopBar"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.97, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.5)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 22
+text = "三维蓝图工坊"
+
+[node name="Status" type="Label" parent="TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.9, 0.94, 0.98, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.5)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 15
+text = "正在制作：头部装备 · 点击左侧部位平滑定位视角"
+vertical_alignment = 1
+
+[node name="CloseButton" type="Button" parent="TopBar"]
+custom_minimum_size = Vector2(40, 36)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "×"
+
+[node name="LeftDrawer" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_left = 18.0
+offset_top = 68.0
+offset_right = 268.0
+offset_bottom = -22.0
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="LeftDrawer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("PanelGlass")
+
+[node name="Margin" type="MarginContainer" parent="LeftDrawer/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="LeftDrawer/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="HeaderLabel" type="Label" parent="LeftDrawer/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.35, 0.42, 1)
+theme_override_font_sizes/font_size = 17
+text = "制作物品选择区"
+horizontal_alignment = 1
+
+[node name="NameEdit" type="LineEdit" parent="LeftDrawer/Panel/Margin/VBox"]
+layout_mode = 2
+placeholder_text = "蓝图名称"
+
+[node name="SavedDesigns" type="OptionButton" parent="LeftDrawer/Panel/Margin/VBox"]
+layout_mode = 2
+tooltip_text = "选择已保存的设计，继续编辑或再次制作"
+text = "已保存蓝图（暂无）"
+clip_text = true
+
+[node name="NewDesign" type="Button" parent="LeftDrawer/Panel/Margin/VBox"]
+layout_mode = 2
+text = "＋ 新建设计"
+
+[node name="CategoryScroll" type="ScrollContainer" parent="LeftDrawer/Panel/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="CategoryList" type="VBoxContainer" parent="LeftDrawer/Panel/Margin/VBox/CategoryScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="LeftToggleBtn" type="Button" parent="LeftDrawer"]
+custom_minimum_size = Vector2(28, 64)
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = 6.0
+offset_top = -32.0
+offset_right = 34.0
+offset_bottom = 32.0
+grow_horizontal = 0
+grow_vertical = 2
+theme_override_styles/normal = SubResource("DrawerBtn")
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+text = "◀"
+
+[node name="RotateGizmo" type="VBoxContainer" parent="."]
+custom_minimum_size = Vector2(120, 166)
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -440.0
+offset_top = 68.0
+offset_right = -320.0
+offset_bottom = 234.0
+grow_horizontal = 0
+theme_override_constants/separation = 8
+
+[node name="BallArea" type="Control" parent="RotateGizmo"]
+custom_minimum_size = Vector2(110, 110)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 0
+
+[node name="Disc" type="Panel" parent="RotateGizmo/BallArea"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+theme_override_styles/panel = SubResource("GizmoDisc")
+
+[node name="UpBtn" type="Button" parent="RotateGizmo/BallArea/Disc"]
+custom_minimum_size = Vector2(32, 28)
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -16.0
+offset_top = 4.0
+offset_right = 16.0
+offset_bottom = 32.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "▲"
+
+[node name="DownBtn" type="Button" parent="RotateGizmo/BallArea/Disc"]
+custom_minimum_size = Vector2(32, 28)
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -16.0
+offset_top = -32.0
+offset_right = 16.0
+offset_bottom = -4.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "▼"
+
+[node name="LeftBtn" type="Button" parent="RotateGizmo/BallArea/Disc"]
+custom_minimum_size = Vector2(28, 32)
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 4.0
+offset_top = -16.0
+offset_right = 32.0
+offset_bottom = 16.0
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "◀"
+
+[node name="RightBtn" type="Button" parent="RotateGizmo/BallArea/Disc"]
+custom_minimum_size = Vector2(28, 32)
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -32.0
+offset_top = -16.0
+offset_right = -4.0
+offset_bottom = 16.0
+grow_horizontal = 0
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "▶"
+
+[node name="CenterBlock" type="PanelContainer" parent="RotateGizmo/BallArea/Disc"]
+custom_minimum_size = Vector2(44, 44)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -22.0
+offset_top = -22.0
+offset_right = 22.0
+offset_bottom = 22.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="CenterLabel" type="Label" parent="RotateGizmo/BallArea/Disc/CenterBlock"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 1)
+theme_override_font_sizes/font_size = 11
+text = "三维\n旋转球"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BallCanvas" type="Control" parent="RotateGizmo/BallArea/Disc"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ResetBtn" type="Button" parent="RotateGizmo"]
+custom_minimum_size = Vector2(110, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 13
+theme_override_styles/normal = SubResource("ItemBtnActive")
+text = "↺ 复位视角"
+
+[node name="RightDrawer" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -300.0
+offset_top = 68.0
+offset_right = -18.0
+offset_bottom = -22.0
+grow_horizontal = 0
+grow_vertical = 2
+
+[node name="RightToggleBtn" type="Button" parent="RightDrawer"]
+custom_minimum_size = Vector2(28, 64)
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = -34.0
+offset_top = -32.0
+offset_right = -6.0
+offset_bottom = 32.0
+grow_vertical = 2
+theme_override_styles/normal = SubResource("DrawerBtn")
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+text = "▶"
+
+[node name="Panel" type="PanelContainer" parent="RightDrawer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("PanelGlass")
+
+[node name="Margin" type="MarginContainer" parent="RightDrawer/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="RightDrawer/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="SizeHeader" type="Label" parent="RightDrawer/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.35, 0.42, 1)
+theme_override_font_sizes/font_size = 15
+text = "方块尺寸选择"
+horizontal_alignment = 1
+
+[node name="SizeBox" type="HBoxContainer" parent="RightDrawer/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="SizeQuarterBtn" type="Button" parent="RightDrawer/Panel/Margin/VBox/SizeBox"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "1/4 尺寸 (0.26m) · 大面积快速铺装"
+theme_override_colors/font_color = Color(0.25, 0.35, 0.4, 1)
+theme_override_font_sizes/font_size = 13
+theme_override_styles/normal = SubResource("ItemBtnNormal")
+text = "1/4"
+
+[node name="SizeEighthBtn" type="Button" parent="RightDrawer/Panel/Margin/VBox/SizeBox"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "1/8 尺寸 (0.13m) · 标准体素构建"
+theme_override_colors/font_color = Color(0.85, 0.55, 0.18, 1)
+theme_override_font_sizes/font_size = 13
+theme_override_styles/normal = SubResource("ItemBtnActive")
+text = "1/8"
+
+[node name="SizeSixteenthBtn" type="Button" parent="RightDrawer/Panel/Margin/VBox/SizeBox"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "1/16 尺寸 (0.065m) · 精细纹理雕刻"
+theme_override_colors/font_color = Color(0.25, 0.35, 0.4, 1)
+theme_override_font_sizes/font_size = 13
+theme_override_styles/normal = SubResource("ItemBtnNormal")
+text = "1/16"
+
+[node name="SizeThirtySecondBtn" type="Button" parent="RightDrawer/Panel/Margin/VBox/SizeBox"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "1/32 尺寸 (0.0325m) · 超微体素细节"
+theme_override_colors/font_color = Color(0.25, 0.35, 0.4, 1)
+theme_override_font_sizes/font_size = 13
+theme_override_styles/normal = SubResource("ItemBtnNormal")
+text = "1/32"
+
+[node name="MatHeader" type="Label" parent="RightDrawer/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.35, 0.42, 1)
+theme_override_font_sizes/font_size = 17
+text = "材料选择区"
+horizontal_alignment = 1
+
+[node name="PaletteGrid" type="GridContainer" parent="RightDrawer/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+columns = 2
+
+[node name="Mat1" type="Button" parent="RightDrawer/Panel/Margin/VBox/PaletteGrid"]
+custom_minimum_size = Vector2(118, 40)
+layout_mode = 2
+text = "岩纹石"
+
+[node name="Mat2" type="Button" parent="RightDrawer/Panel/Margin/VBox/PaletteGrid"]
+custom_minimum_size = Vector2(118, 40)
+layout_mode = 2
+text = "海纹玉"
+
+[node name="Mat3" type="Button" parent="RightDrawer/Panel/Margin/VBox/PaletteGrid"]
+custom_minimum_size = Vector2(118, 40)
+layout_mode = 2
+text = "暖阳金"
+
+[node name="Mat4" type="Button" parent="RightDrawer/Panel/Margin/VBox/PaletteGrid"]
+custom_minimum_size = Vector2(118, 40)
+layout_mode = 2
+text = "苔痕木"
+
+[node name="Mat5" type="Button" parent="RightDrawer/Panel/Margin/VBox/PaletteGrid"]
+custom_minimum_size = Vector2(118, 40)
+layout_mode = 2
+text = "暮紫晶"
+
+[node name="Mat6" type="Button" parent="RightDrawer/Panel/Margin/VBox/PaletteGrid"]
+custom_minimum_size = Vector2(118, 40)
+layout_mode = 2
+text = "寒铁"
+
+[node name="Mat7" type="Button" parent="RightDrawer/Panel/Margin/VBox/PaletteGrid"]
+custom_minimum_size = Vector2(118, 40)
+layout_mode = 2
+text = "赤陶土"
+
+[node name="Mat8" type="Button" parent="RightDrawer/Panel/Margin/VBox/PaletteGrid"]
+custom_minimum_size = Vector2(118, 40)
+layout_mode = 2
+text = "云母矿"
+
+[node name="CountLabel" type="Label" parent="RightDrawer/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.32, 0.44, 0.5, 1)
+text = "方块 0  ·  材料种类 0"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="RightDrawer/Panel/Margin/VBox"]
+layout_mode = 2
+
+[node name="ToolHeader" type="Label" parent="RightDrawer/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.35, 0.42, 1)
+theme_override_font_sizes/font_size = 15
+text = "设计工具"
+
+[node name="ToolsGrid" type="GridContainer" parent="RightDrawer/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+columns = 2
+
+[node name="Erase" type="CheckButton" parent="RightDrawer/Panel/Margin/VBox/ToolsGrid"]
+custom_minimum_size = Vector2(118, 38)
+layout_mode = 2
+text = "橡皮擦"
+
+[node name="Mirror" type="Button" parent="RightDrawer/Panel/Margin/VBox/ToolsGrid"]
+custom_minimum_size = Vector2(118, 38)
+layout_mode = 2
+text = "左右镜像"
+
+[node name="Clear" type="Button" parent="RightDrawer/Panel/Margin/VBox/ToolsGrid"]
+custom_minimum_size = Vector2(118, 38)
+layout_mode = 2
+text = "清空"
+
+[node name="ResetCam" type="Button" parent="RightDrawer/Panel/Margin/VBox/ToolsGrid"]
+custom_minimum_size = Vector2(118, 38)
+layout_mode = 2
+text = "重置视角"
+
+[node name="ZoomBox" type="HBoxContainer" parent="RightDrawer/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ZoomLabel" type="Label" parent="RightDrawer/Panel/Margin/VBox/ZoomBox"]
+layout_mode = 2
+text = "缩放"
+
+[node name="ZoomSlider" type="HSlider" parent="RightDrawer/Panel/Margin/VBox/ZoomBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+min_value = 1.6
+max_value = 8.0
+step = 0.05
+value = 3.6
+
+[node name="Spacer" type="Control" parent="RightDrawer/Panel/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Save" type="Button" parent="RightDrawer/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_styles/normal = SubResource("ActionBtn")
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "💾 保存蓝图"
+
+[node name="Cost" type="Label" parent="RightDrawer/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.35, 0.42, 1)
+theme_override_font_sizes/font_size = 13
+text = "请先在当前部位放置方块"
+autowrap_mode = 2
+
+[node name="Craft" type="Button" parent="RightDrawer/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_styles/normal = SubResource("ActionBtn")
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "制作装备 → 背包"
+disabled = true

@@ -1,0 +1,562 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/InventoryPanel.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/InventorySlot.tscn" id="2"]
+
+[sub_resource type="StyleBoxFlat" id="Card"]
+bg_color = Color(0.10, 0.14, 0.18, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.43, 0.48, 0.50, 1)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_left = 18
+corner_radius_bottom_right = 18
+shadow_color = Color(0, 0, 0, 0.45)
+shadow_size = 18
+
+[sub_resource type="StyleBoxFlat" id="Section"]
+content_margin_left = 12.0
+content_margin_top = 14.0
+content_margin_right = 12.0
+content_margin_bottom = 14.0
+bg_color = Color(0.14, 0.19, 0.23, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_left = 12
+corner_radius_bottom_right = 12
+
+[sub_resource type="StyleBoxFlat" id="Button"]
+content_margin_left = 12.0
+content_margin_top = 8.0
+content_margin_right = 12.0
+content_margin_bottom = 8.0
+bg_color = Color(0.19, 0.25, 0.29, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_left = 6
+corner_radius_bottom_right = 6
+
+[sub_resource type="StyleBoxFlat" id="Hover"]
+content_margin_left = 12.0
+content_margin_top = 8.0
+content_margin_right = 12.0
+content_margin_bottom = 8.0
+bg_color = Color(0.28, 0.34, 0.37, 1)
+border_width_bottom = 2
+border_color = Color(0.83, 0.69, 0.48, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_left = 6
+corner_radius_bottom_right = 6
+
+[sub_resource type="StyleBoxFlat" id="Active"]
+content_margin_left = 12.0
+content_margin_top = 8.0
+content_margin_right = 12.0
+content_margin_bottom = 8.0
+bg_color = Color(0.37, 0.31, 0.23, 1)
+border_width_bottom = 2
+border_color = Color(0.88, 0.73, 0.51, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_left = 6
+corner_radius_bottom_right = 6
+
+[sub_resource type="StyleBoxFlat" id="Field"]
+content_margin_left = 10.0
+content_margin_top = 8.0
+content_margin_right = 10.0
+content_margin_bottom = 8.0
+bg_color = Color(0.08, 0.12, 0.15, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_left = 6
+corner_radius_bottom_right = 6
+
+[sub_resource type="StyleBoxFlat" id="Dim"]
+bg_color = Color(0.025, 0.04, 0.06, 0.78)
+
+[sub_resource type="Theme" id="Theme"]
+default_font_size = 14
+Label/colors/font_color = Color(0.90, 0.91, 0.88, 1)
+Button/colors/font_color = Color(0.90, 0.91, 0.88, 1)
+Button/colors/font_hover_color = Color(1, 0.94, 0.82, 1)
+Button/colors/font_pressed_color = Color(1, 0.94, 0.82, 1)
+Button/colors/font_disabled_color = Color(0.48, 0.55, 0.58, 1)
+Button/styles/normal = SubResource("Button")
+Button/styles/hover = SubResource("Hover")
+Button/styles/pressed = SubResource("Active")
+Button/styles/disabled = SubResource("Button")
+PanelContainer/styles/panel = SubResource("Section")
+LineEdit/styles/normal = SubResource("Field")
+LineEdit/styles/focus = SubResource("Field")
+LineEdit/colors/font_color = Color(0.94, 0.94, 0.90, 1)
+LineEdit/colors/font_placeholder_color = Color(0.58, 0.65, 0.68, 1)
+ItemList/styles/panel = SubResource("Field")
+ItemList/styles/selected = SubResource("Active")
+ItemList/styles/selected_focus = SubResource("Active")
+ItemList/colors/font_color = Color(0.85, 0.88, 0.86, 1)
+ItemList/constants/v_separation = 10
+
+[node name="InventoryPanel" type="Control"]
+process_mode = 3
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+visible = false
+theme = SubResource("Theme")
+script = ExtResource("1")
+
+[node name="Dim" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 0
+theme_override_styles/panel = SubResource("Dim")
+
+[node name="Card" type="Panel" parent="."]
+layout_mode = 0
+offset_right = 1320.0
+offset_bottom = 780.0
+theme_override_styles/panel = SubResource("Card")
+
+[node name="Header" type="HBoxContainer" parent="Card"]
+offset_left = 24.0
+offset_top = 20.0
+offset_right = 1296.0
+offset_bottom = 78.0
+theme_override_constants/separation = 16
+
+[node name="Titles" type="VBoxContainer" parent="Card/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 3
+
+[node name="Title" type="Label" parent="Card/Header/Titles"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "随身行囊"
+
+[node name="Subtitle" type="Label" parent="Card/Header/Titles"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.61, 0.69, 0.71, 1)
+text = "装备、收纳与制作"
+
+[node name="Mode" type="Label" parent="Card/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.73, 0.54, 1)
+text = "创造模式 · 无限物品"
+
+[node name="CloseButton" type="Button" parent="Card/Header"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(90, 40)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+text = "关闭  Esc"
+
+[node name="Columns" type="HBoxContainer" parent="Card"]
+offset_left = 24.0
+offset_top = 96.0
+offset_right = 1296.0
+offset_bottom = 696.0
+theme_override_constants/separation = 16
+
+[node name="EquipmentSection" type="PanelContainer" parent="Card/Columns"]
+custom_minimum_size = Vector2(184, 0)
+layout_mode = 2
+
+[node name="Content" type="VBoxContainer" parent="Card/Columns/EquipmentSection"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Card/Columns/EquipmentSection/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "人物装备"
+
+[node name="Preview" type="SubViewportContainer" parent="Card/Columns/EquipmentSection/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 142)
+layout_mode = 2
+mouse_filter = 2
+stretch = true
+
+[node name="Equipment" type="GridContainer" parent="Card/Columns/EquipmentSection/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+columns = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+
+[node name="Equip0" parent="Card/Columns/EquipmentSection/Content/Equipment" instance=ExtResource("2")]
+custom_minimum_size = Vector2(76, 76)
+group = "equipment"
+index = 0
+[node name="Equip1" parent="Card/Columns/EquipmentSection/Content/Equipment" instance=ExtResource("2")]
+custom_minimum_size = Vector2(76, 76)
+group = "equipment"
+index = 1
+[node name="Equip2" parent="Card/Columns/EquipmentSection/Content/Equipment" instance=ExtResource("2")]
+custom_minimum_size = Vector2(76, 76)
+group = "equipment"
+index = 2
+[node name="Equip3" parent="Card/Columns/EquipmentSection/Content/Equipment" instance=ExtResource("2")]
+custom_minimum_size = Vector2(76, 76)
+group = "equipment"
+index = 3
+[node name="Equip4" parent="Card/Columns/EquipmentSection/Content/Equipment" instance=ExtResource("2")]
+custom_minimum_size = Vector2(76, 76)
+group = "equipment"
+index = 4
+[node name="Equip5" parent="Card/Columns/EquipmentSection/Content/Equipment" instance=ExtResource("2")]
+custom_minimum_size = Vector2(76, 76)
+group = "equipment"
+index = 5
+[node name="Equip6" parent="Card/Columns/EquipmentSection/Content/Equipment" instance=ExtResource("2")]
+custom_minimum_size = Vector2(76, 76)
+group = "equipment"
+index = 6
+
+[node name="Hint" type="Label" parent="Card/Columns/EquipmentSection/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.61, 0.69, 0.71, 1)
+theme_override_font_sizes/font_size = 12
+text = "右键装备槽可卸下"
+
+[node name="BagSection" type="PanelContainer" parent="Card/Columns"]
+custom_minimum_size = Vector2(624, 0)
+layout_mode = 2
+
+[node name="Content" type="VBoxContainer" parent="Card/Columns/BagSection"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Header" type="HBoxContainer" parent="Card/Columns/BagSection/Content"]
+layout_mode = 2
+theme_override_constants/separation = 12
+[node name="Title" type="Label" parent="Card/Columns/BagSection/Content/Header"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "背包储物"
+[node name="Capacity" type="Label" parent="Card/Columns/BagSection/Content/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.61, 0.69, 0.71, 1)
+text = "0 / 24"
+[node name="Sort" type="Button" parent="Card/Columns/BagSection/Content/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "整理背包"
+tooltip_text = "合并同类堆叠并按物品排列，保留快捷栏顺序"
+
+[node name="StorageScroll" type="ScrollContainer" parent="Card/Columns/BagSection/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 186)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+[node name="Bag" type="GridContainer" parent="Card/Columns/BagSection/Content/StorageScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+columns = 8
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 8
+
+[node name="Bag8" parent="Card/Columns/BagSection/Content/StorageScroll/Bag" instance=ExtResource("2")]
+index = 8
+[node name="Bag9" parent="Card/Columns/BagSection/Content/StorageScroll/Bag" instance=ExtResource("2")]
+index = 9
+[node name="Bag10" parent="Card/Columns/BagSection/Content/StorageScroll/Bag" instance=ExtResource("2")]
+index = 10
+[node name="Bag11" parent="Card/Columns/BagSection/Content/StorageScroll/Bag" instance=ExtResource("2")]
+index = 11
+[node name="Bag12" parent="Card/Columns/BagSection/Content/StorageScroll/Bag" instance=ExtResource("2")]
+index = 12
+[node name="Bag13" parent="Card/Columns/BagSection/Content/StorageScroll/Bag" instance=ExtResource("2")]
+index = 13
+[node name="Bag14" parent="Card/Columns/BagSection/Content/StorageScroll/Bag" instance=ExtResource("2")]
+index = 14
+[node name="Bag15" parent="Card/Columns/BagSection/Content/StorageScroll/Bag" instance=ExtResource("2")]
+index = 15
+[node name="Bag16" parent="Card/Columns/BagSection/Content/StorageScroll/Bag" instance=ExtResource("2")]
+index = 16
+[node name="Bag17" parent="Card/Columns/BagSection/Content/StorageScroll/Bag" instance=ExtResource("2")]
+index = 17
+[node name="Bag18" parent="Card/Columns/BagSection/Content/StorageScroll/Bag" instance=ExtResource("2")]
+index = 18
+[node name="Bag19" parent="Card/Columns/BagSection/Content/StorageScroll/Bag" instance=ExtResource("2")]
+index = 19
+[node name="Bag20" parent="Card/Columns/BagSection/Content/StorageScroll/Bag" instance=ExtResource("2")]
+index = 20
+[node name="Bag21" parent="Card/Columns/BagSection/Content/StorageScroll/Bag" instance=ExtResource("2")]
+index = 21
+[node name="Bag22" parent="Card/Columns/BagSection/Content/StorageScroll/Bag" instance=ExtResource("2")]
+index = 22
+[node name="Bag23" parent="Card/Columns/BagSection/Content/StorageScroll/Bag" instance=ExtResource("2")]
+index = 23
+
+[node name="Selection" type="PanelContainer" parent="Card/Columns/BagSection/Content"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("Field")
+[node name="Text" type="VBoxContainer" parent="Card/Columns/BagSection/Content/Selection"]
+layout_mode = 2
+theme_override_constants/separation = 6
+[node name="ItemName" type="Label" parent="Card/Columns/BagSection/Content/Selection/Text"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88, 0.76, 0.57, 1)
+text = "鼠标移到物品上查看详情"
+[node name="ItemHint" type="Label" parent="Card/Columns/BagSection/Content/Selection/Text"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.67, 0.74, 0.75, 1)
+theme_override_font_sizes/font_size = 13
+text = "拖动物品可交换位置；Shift + 点击可快速移动。"
+autowrap_mode = 2
+
+[node name="HotbarTitle" type="Label" parent="Card/Columns/BagSection/Content"]
+layout_mode = 2
+text = "快捷栏  1–8    ·    始终显示，拖入即可使用"
+theme_override_colors/font_color = Color(0.88, 0.76, 0.57, 1)
+[node name="Hotbar" type="GridContainer" parent="Card/Columns/BagSection/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+columns = 8
+theme_override_constants/h_separation = 6
+[node name="Bag0" parent="Card/Columns/BagSection/Content/Hotbar" instance=ExtResource("2")]
+index = 0
+[node name="Bag1" parent="Card/Columns/BagSection/Content/Hotbar" instance=ExtResource("2")]
+index = 1
+[node name="Bag2" parent="Card/Columns/BagSection/Content/Hotbar" instance=ExtResource("2")]
+index = 2
+[node name="Bag3" parent="Card/Columns/BagSection/Content/Hotbar" instance=ExtResource("2")]
+index = 3
+[node name="Bag4" parent="Card/Columns/BagSection/Content/Hotbar" instance=ExtResource("2")]
+index = 4
+[node name="Bag5" parent="Card/Columns/BagSection/Content/Hotbar" instance=ExtResource("2")]
+index = 5
+[node name="Bag6" parent="Card/Columns/BagSection/Content/Hotbar" instance=ExtResource("2")]
+index = 6
+[node name="Bag7" parent="Card/Columns/BagSection/Content/Hotbar" instance=ExtResource("2")]
+index = 7
+
+[node name="WorkSection" type="PanelContainer" parent="Card/Columns"]
+custom_minimum_size = Vector2(432, 0)
+layout_mode = 2
+[node name="Content" type="VBoxContainer" parent="Card/Columns/WorkSection"]
+layout_mode = 2
+theme_override_constants/separation = 12
+[node name="ModeToggle" type="HBoxContainer" parent="Card/Columns/WorkSection/Content"]
+layout_mode = 2
+theme_override_constants/separation = 8
+[node name="TabCreative" type="Button" parent="Card/Columns/WorkSection/Content/ModeToggle"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "创造物品库"
+[node name="TabCrafting" type="Button" parent="Card/Columns/WorkSection/Content/ModeToggle"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "合成台"
+
+[node name="CreativeSection" type="VBoxContainer" parent="Card/Columns/WorkSection/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+[node name="Search" type="LineEdit" parent="Card/Columns/WorkSection/Content/CreativeSection"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "搜索物品名称，如：木板、铁镐"
+clear_button_enabled = true
+[node name="CategoryBar" type="GridContainer" parent="Card/Columns/WorkSection/Content/CreativeSection"]
+unique_name_in_owner = true
+layout_mode = 2
+columns = 3
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 6
+[node name="BtnAll" type="Button" parent="Card/Columns/WorkSection/Content/CreativeSection/CategoryBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "全部"
+[node name="BtnBlocks" type="Button" parent="Card/Columns/WorkSection/Content/CreativeSection/CategoryBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "方块 20"
+[node name="BtnEquip" type="Button" parent="Card/Columns/WorkSection/Content/CreativeSection/CategoryBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "装备"
+[node name="BtnTools" type="Button" parent="Card/Columns/WorkSection/Content/CreativeSection/CategoryBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "工具 9"
+[node name="BtnWeapons" type="Button" parent="Card/Columns/WorkSection/Content/CreativeSection/CategoryBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "武器 5"
+[node name="BtnDocs" type="Button" parent="Card/Columns/WorkSection/Content/CreativeSection/CategoryBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "纸笔 2"
+[node name="EquipmentStyleRow" type="HBoxContainer" parent="Card/Columns/WorkSection/Content/CreativeSection"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+visible = false
+[node name="EquipmentStyle" type="OptionButton" parent="Card/Columns/WorkSection/Content/CreativeSection/EquipmentStyleRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_override_colors/font_color = Color(0.90, 0.91, 0.88, 1)
+theme_override_styles/normal = SubResource("Button")
+theme_override_styles/hover = SubResource("Hover")
+theme_override_styles/pressed = SubResource("Active")
+[node name="WearSet" type="Button" parent="Card/Columns/WorkSection/Content/CreativeSection/EquipmentStyleRow"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "穿戴整套"
+disabled = true
+tooltip_text = "创造模式整套试穿；当前装备会放回背包，也可逐件混搭。"
+[node name="CatalogCount" type="Label" parent="Card/Columns/WorkSection/Content/CreativeSection"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.61, 0.69, 0.71, 1)
+theme_override_font_sizes/font_size = 12
+text = "浏览物品"
+[node name="CatalogScroll" type="ScrollContainer" parent="Card/Columns/WorkSection/Content/CreativeSection"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+[node name="CreativeGrid" type="GridContainer" parent="Card/Columns/WorkSection/Content/CreativeSection/CatalogScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+columns = 5
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 8
+[node name="EmptySearch" type="Label" parent="Card/Columns/WorkSection/Content/CreativeSection"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "没有匹配物品，试试其他名称或分类。"
+autowrap_mode = 2
+visible = false
+[node name="Hint" type="Label" parent="Card/Columns/WorkSection/Content/CreativeSection"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.61, 0.69, 0.71, 1)
+theme_override_font_sizes/font_size = 12
+text = "点击领取 · 拖到指定格 · 右键放入当前快捷格"
+
+[node name="CraftSection" type="VBoxContainer" parent="Card/Columns/WorkSection/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+[node name="Title" type="Label" parent="Card/Columns/WorkSection/Content/CraftSection"]
+layout_mode = 2
+text = "三格无序合成 · 点击下方配方自动填料"
+[node name="Crafting" type="HBoxContainer" parent="Card/Columns/WorkSection/Content/CraftSection"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+[node name="Input0" parent="Card/Columns/WorkSection/Content/CraftSection/Crafting" instance=ExtResource("2")]
+group = "crafting"
+index = 0
+[node name="Input1" parent="Card/Columns/WorkSection/Content/CraftSection/Crafting" instance=ExtResource("2")]
+group = "crafting"
+index = 1
+[node name="Input2" parent="Card/Columns/WorkSection/Content/CraftSection/Crafting" instance=ExtResource("2")]
+group = "crafting"
+index = 2
+[node name="Arrow" type="Label" parent="Card/Columns/WorkSection/Content/CraftSection/Crafting"]
+layout_mode = 2
+text = "→"
+[node name="Output" parent="Card/Columns/WorkSection/Content/CraftSection/Crafting" instance=ExtResource("2")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(80, 76)
+group = "result"
+index = 0
+[node name="Recipe" type="Label" parent="Card/Columns/WorkSection/Content/CraftSection"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88, 0.76, 0.57, 1)
+autowrap_mode = 2
+text = "放入材料，或选择下方配方"
+[node name="Actions" type="HBoxContainer" parent="Card/Columns/WorkSection/Content/CraftSection"]
+layout_mode = 2
+theme_override_constants/separation = 8
+[node name="TakeResult" type="Button" parent="Card/Columns/WorkSection/Content/CraftSection/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "领取成品"
+[node name="ReturnMaterials" type="Button" parent="Card/Columns/WorkSection/Content/CraftSection/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "取回材料"
+[node name="RecipeTitle" type="Label" parent="Card/Columns/WorkSection/Content/CraftSection"]
+layout_mode = 2
+text = "配方手册"
+[node name="RecipeSearch" type="LineEdit" parent="Card/Columns/WorkSection/Content/CraftSection"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "搜索成品或材料，如：铁镐、原木"
+clear_button_enabled = true
+[node name="RecipeList" type="ItemList" parent="Card/Columns/WorkSection/Content/CraftSection"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 160)
+layout_mode = 2
+size_flags_vertical = 3
+allow_reselect = true
+[node name="Hint" type="Label" parent="Card/Columns/WorkSection/Content/CraftSection"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.61, 0.69, 0.71, 1)
+theme_override_font_sizes/font_size = 12
+text = "创造模式保留材料，生存模式合成时消耗。"
+autowrap_mode = 2
+
+[node name="Footer" type="HBoxContainer" parent="Card"]
+offset_left = 24.0
+offset_top = 718.0
+offset_right = 1296.0
+offset_bottom = 754.0
+theme_override_constants/separation = 16
+[node name="Feedback" type="Label" parent="Card/Footer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.88, 0.76, 0.57, 1)
+text = "拖动交换 · 右键穿戴 · Shift + 点击快速移动"
+[node name="Help" type="Label" parent="Card/Footer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.61, 0.69, 0.71, 1)
+theme_override_font_sizes/font_size = 12
+text = "悬停物品 + 1–8 放入快捷栏    |    B / E / Esc 关闭"

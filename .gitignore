@@ -1,0 +1,18 @@
+.godot/
+*.tmp
+
+# Local captures and experiments
+scratch/
+debug_run.txt
+out.txt
+test_cam_code.gd
+test_cam_code.gd.uid
+test_third_person_view.png
+test_third_person_view.png.import
+
+# Generated packages and local credentials
+builds/
+exports/
+.env
+.env.*
+!.env.example

@@ -1,0 +1,286 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/NotebookPanel.gd" id="1"]
+
+[sub_resource type="StyleBoxFlat" id="Dim"]
+bg_color = Color(0.12, 0.08, 0.04, 0.65)
+
+[sub_resource type="StyleBoxFlat" id="Card"]
+bg_color = Color(0.95, 0.91, 0.82, 0.99)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.48, 0.32, 0.18, 1)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+shadow_color = Color(0.18, 0.10, 0.04, 0.45)
+shadow_size = 28
+shadow_offset = Vector2(0, 8)
+
+[sub_resource type="StyleBoxFlat" id="close_btn"]
+content_margin_left = 12.0
+content_margin_top = 6.0
+content_margin_right = 12.0
+content_margin_bottom = 6.0
+bg_color = Color(0.52, 0.40, 0.28, 0.12)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.52, 0.40, 0.28, 0.4)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="close_btn_hover"]
+content_margin_left = 12.0
+content_margin_top = 6.0
+content_margin_right = 12.0
+content_margin_bottom = 6.0
+bg_color = Color(0.85, 0.35, 0.30, 0.2)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.85, 0.35, 0.30, 0.8)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="editor_box"]
+content_margin_left = 16.0
+content_margin_top = 14.0
+content_margin_right = 16.0
+content_margin_bottom = 14.0
+bg_color = Color(1, 0.99, 0.95, 0.95)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.65, 0.55, 0.42, 0.6)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
+[sub_resource type="StyleBoxFlat" id="notes_box"]
+content_margin_left = 14.0
+content_margin_top = 10.0
+content_margin_right = 14.0
+content_margin_bottom = 10.0
+bg_color = Color(0.92, 0.89, 0.81, 0.8)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.65, 0.55, 0.42, 0.5)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="btn_sec"]
+content_margin_left = 18.0
+content_margin_top = 8.0
+content_margin_right = 18.0
+content_margin_bottom = 8.0
+bg_color = Color(0.52, 0.40, 0.28, 0.12)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.52, 0.40, 0.28, 0.5)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="btn_pri"]
+content_margin_left = 22.0
+content_margin_top = 8.0
+content_margin_right = 22.0
+content_margin_bottom = 8.0
+bg_color = Color(0.85, 0.58, 0.20, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 0.88, 0.60, 0.9)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0.85, 0.58, 0.20, 0.3)
+shadow_size = 6
+
+[sub_resource type="StyleBoxFlat" id="btn_pri_hover"]
+content_margin_left = 22.0
+content_margin_top = 8.0
+content_margin_right = 22.0
+content_margin_bottom = 8.0
+bg_color = Color(0.95, 0.68, 0.25, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 0.95, 0.70, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0.95, 0.68, 0.25, 0.45)
+shadow_size = 10
+
+[sub_resource type="Theme" id="Theme"]
+Label/colors/font_color = Color(0.24, 0.20, 0.16, 1)
+Label/font_sizes/font_size = 15
+
+[node name="NotebookPanel" type="Control"]
+process_mode = 3
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+visible = false
+script = ExtResource("1")
+theme = SubResource("Theme")
+
+[node name="Dim" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+theme_override_styles/panel = SubResource("Dim")
+
+[node name="Card" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -480.0
+offset_top = -320.0
+offset_right = 480.0
+offset_bottom = 320.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("Card")
+
+[node name="Header" type="HBoxContainer" parent="Card"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 32.0
+offset_top = 22.0
+offset_right = -32.0
+offset_bottom = 60.0
+grow_horizontal = 2
+
+[node name="Title" type="Label" parent="Card/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.32, 0.24, 0.16, 1)
+theme_override_font_sizes/font_size = 24
+text = "探险手记 · 旅途随笔与配方笔记"
+
+[node name="CloseButton" type="Button" parent="Card/Header"]
+custom_minimum_size = Vector2(36, 32)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.38, 0.28, 0.20, 1)
+theme_override_font_sizes/font_size = 18
+theme_override_styles/normal = SubResource("close_btn")
+theme_override_styles/hover = SubResource("close_btn_hover")
+theme_override_styles/pressed = SubResource("close_btn_hover")
+text = "✕"
+
+[node name="Body" type="VBoxContainer" parent="Card"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 32.0
+offset_top = 74.0
+offset_right = -32.0
+offset_bottom = -28.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 12
+
+[node name="Editor" type="TextEdit" parent="Card/Body"]
+custom_minimum_size = Vector2(0, 200)
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.22, 0.18, 0.15, 1)
+theme_override_colors/font_placeholder_color = Color(0.55, 0.48, 0.40, 0.7)
+theme_override_colors/caret_color = Color(0.85, 0.58, 0.20, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("editor_box")
+theme_override_styles/focus = SubResource("editor_box")
+placeholder_text = "写下旅途中的灵感、配方和故事……"
+wrap_mode = 1
+
+[node name="Actions" type="HBoxContainer" parent="Card/Body"]
+layout_mode = 2
+alignment = 2
+theme_override_constants/separation = 12
+
+[node name="New" type="Button" parent="Card/Body/Actions"]
+custom_minimum_size = Vector2(110, 38)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.38, 0.28, 0.20, 1)
+theme_override_styles/normal = SubResource("btn_sec")
+text = "新建笔记"
+
+[node name="Close" type="Button" parent="Card/Body/Actions"]
+custom_minimum_size = Vector2(90, 38)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.38, 0.28, 0.20, 1)
+theme_override_font_sizes/font_size = 15
+theme_override_styles/normal = SubResource("btn_sec")
+text = "关闭"
+
+[node name="Save" type="Button" parent="Card/Body/Actions"]
+custom_minimum_size = Vector2(110, 38)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(0.12, 0.18, 0.20, 1)
+theme_override_font_sizes/font_size = 15
+theme_override_styles/normal = SubResource("btn_pri")
+theme_override_styles/hover = SubResource("btn_pri_hover")
+theme_override_styles/pressed = SubResource("btn_pri_hover")
+text = "添加笔记"
+
+[node name="Notice" type="Label" parent="Card/Body"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.38, 0.28, 0.20, 1)
+theme_override_font_sizes/font_size = 13
+text = "添加或修改笔记后，按 F5 保存进度"
+
+[node name="NotesTitle" type="Label" parent="Card/Body"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.38, 0.28, 0.20, 1)
+theme_override_font_sizes/font_size = 15
+text = "已翻阅的篇章（点击载入编辑）："
+
+[node name="Notes" type="ItemList" parent="Card/Body"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.24, 0.20, 0.16, 1)
+theme_override_colors/font_selected_color = Color(0.12, 0.18, 0.20, 1)
+theme_override_font_sizes/font_size = 15
+theme_override_styles/panel = SubResource("notes_box")
