@@ -22,3 +22,11 @@ func build(id: int, character: Node3D = null) -> void:
 	source_part_count = renderer.source_part_count
 	if character == null:
 		rotation.y = 0.0 if Sets.slot(id) == 5 else PI
+
+func set_wind(strength: float) -> void:
+	if is_instance_valid(renderer):
+		renderer.set_wind(strength)
+
+func set_motion_enabled(enabled: bool) -> void:
+	if is_instance_valid(renderer):
+		renderer.set_motion_enabled(enabled)

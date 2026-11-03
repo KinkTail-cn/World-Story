@@ -56,6 +56,8 @@ func _run() -> void:
 		assert(p.visible, "鞋子应当保持显示")
 	for p in pieces[5]: # 披风槽位
 		assert(p.visible, "披风应当保持显示")
+		assert(float(p.material_override.get_shader_parameter("motion_scale")) == 0.0, "蓝图创造时，已穿戴披风应显示但完全固定")
+	assert(mock_visual.equipment_visuals.motion_enabled, "蓝图人物的固定状态不应冻结实际玩家披风")
 	print("✓ 真实角色正面朝向与装备实时同步及当前制作部位显隐测试通过")
 	
 	# 5. 验证切换部位时的平滑聚焦运镜与装备显隐切换
@@ -67,6 +69,7 @@ func _run() -> void:
 		assert(p.visible, "切换到盔甲后，头部已有防具未恢复显示")
 	for p in pieces[1]:
 		assert(not p.visible, "切换到盔甲后，盔甲防具未隐藏")
+	assert(not workshop.real_character.equipment_visuals.motion_enabled, "切换编辑部位后仍应保持披风固定")
 	print("✓ 制作部位切换与运镜聚焦测试通过")
 	
 	# 6. 验证“只有旋转球才能转动视角”：主画布拖拽绝对不转动视轨

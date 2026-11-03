@@ -41,9 +41,11 @@ func _run() -> void:
 	for frame in range(20):
 		player.visual.equipment_visuals.update_motion(1.0 / 60.0, 7.8, false, false, false)
 	assert(cape.transform == cape_transform and cape.mesh.get_meta("cube_count", 0) > 1, "Running preserves the base cape's rigid cube assembly")
+	assert(float(cape.material_override.get_shader_parameter("wind_strength")) > 0.75, "Worn base cape responds to running")
 	for frame in range(60):
 		player.visual.equipment_visuals.update_motion(1.0 / 60.0, 0, false, false, true)
 	assert(cape.transform == cape_transform, "Sitting preserves cube shape and orientation relative to the body")
+	assert(float(cape.material_override.get_shader_parameter("wind_strength")) < 0.01, "Cape settles when sitting")
 	panel.tab_crafting.pressed.emit()
 	await process_frame
 	await process_frame

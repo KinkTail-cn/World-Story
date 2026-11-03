@@ -6,9 +6,18 @@ const RESOURCE_IDS: Array[int] = [5, 16, 11, 3, 19, 9, 8, 17]
 const SURFACES: Array[String] = ["solid", "metal", "leather", "cloth"]
 const SURFACE_NAMES: Array[String] = ["实体", "金属", "皮革", "布料"]
 const SHADER = preload("res://shaders/character.gdshader")
+const CAPE_SHADER = preload("res://shaders/cube_cape.gdshader")
 
 static func tint(part: Dictionary) -> Color:
 	return Color(str(part.tint)) if part.has("tint") else COLORS[clampi(int(part.get("mat", 1)) - 1, 0, 7)]
+
+static func create_cape(part: Dictionary) -> ShaderMaterial:
+	var material := ShaderMaterial.new()
+	material.shader = CAPE_SHADER
+	material.set_shader_parameter("base_color", tint(part))
+	material.set_shader_parameter("surface_roughness", {"solid": 0.8, "metal": 0.42, "leather": 0.88, "cloth": 0.98}.get(str(part.get("surface", "cloth")), 0.98))
+	material.set_shader_parameter("surface_metallic", 0.18 if part.get("surface", "cloth") == "metal" else 0.0)
+	return material
 
 static func create(part: Dictionary, ghost: bool = false) -> Material:
 	if ghost:

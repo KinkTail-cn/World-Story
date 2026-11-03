@@ -72,7 +72,7 @@ func _run() -> void:
 		check(character.equipment_visuals.set_visuals[0] == original, "Unchanged loadout reuses its models")
 		for frame in range(90):
 			character.animate(1.0 / 60.0, 7.8, false, false, false, false, false, true)
-		check(character.equipment_visuals.set_visuals[5].pieces.all(func(p): return p.basis.is_equal_approx(Basis.IDENTITY) and p.material_override is StandardMaterial3D), "Running keeps the cubic cape rigid")
+		check(character.equipment_visuals.set_visuals[5].renderer.cape_materials.all(func(m): return float(m.get_shader_parameter("wind_strength")) > 0.8 and float(m.get_shader_parameter("motion_scale")) == 1.0), "Worn official cape responds to running motion")
 		character.animate(0.1, 0.0, false, false, false, false, true)
 		check(character.equipment_visuals.set_visuals[2].pieces[0].global_transform.is_finite(), "Outfit remains attached while sitting")
 	check(seen.size() == 21, "All 21 new pieces have been exercised")

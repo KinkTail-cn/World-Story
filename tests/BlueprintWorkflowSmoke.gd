@@ -98,7 +98,7 @@ func _run() -> void:
 	check(restored.world.documents.size() == 1 and restored.world.documents[0].contents.current.to_dictionary() == armor, "Placed paper restores an editable advanced design")
 	for frame in range(60):
 		restored.player.visual.animate(1.0 / 60.0, 7.8, false, false, false, false, false, true)
-	check(restored.player.visual.equipment_visuals.custom_visuals[5].pieces.all(func(p): return p.basis.is_equal_approx(Basis.IDENTITY)), "Running never tilts or deforms individual cloak cubes")
+	check(restored.player.visual.equipment_visuals.custom_visuals[5].cape_materials.all(func(m): return float(m.get_shader_parameter("wind_strength")) > 1.0) and restored.inventory.get_slot("equipment", 5) == cloak, "Restored custom cape animates without changing its saved design")
 	var bad := armor.duplicate(true)
 	bad.voxels[0].dimensions = [0, 1, 1]
 	var before: Array = restored.inventory.bag.duplicate(true)

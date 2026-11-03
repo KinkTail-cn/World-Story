@@ -162,6 +162,8 @@ func _process(delta: float) -> void:
 		return
 	if preview_pose > 0 and is_instance_valid(real_character):
 		real_character.animate(delta, 7.8 if preview_pose == 1 else (4.2 if preview_pose == 3 else 0.0), false, preview_pose == 4, preview_pose == 3, preview_pose == 3, preview_pose == 2, preview_pose == 1)
+		if is_instance_valid(pose_renderer):
+			pose_renderer.set_wind(real_character.equipment_visuals.cape_wind)
 	motes_time += delta
 	# 驱动漂浮神圣金光体素微粒轻柔游弋
 	for mote in floating_motes:
@@ -1185,6 +1187,7 @@ func _build_template_for(category: String) -> void:
 			"披风": active_equipment[5] = 0
 			"腰带": active_equipment[6] = 0
 		real_character.equipment_visuals.apply_equipment(active_equipment, current_equipment_items)
+		real_character.equipment_visuals.set_motion_enabled(preview_pose > 0)
 	
 	# 为当前制作部位配置 1:1 精确骨骼物理拾取盒与制作基准
 	match category:
@@ -2059,6 +2062,7 @@ func _set_preview_pose(index: int) -> void:
 		pose_renderer = null
 	if not is_instance_valid(real_character):
 		return
+	real_character.equipment_visuals.set_motion_enabled(index > 0)
 	for bone in Geometry.ANCHORS:
 		var node: Node3D = real_character.get(bone)
 		node.rotation = Vector3.ZERO
@@ -2084,6 +2088,7 @@ func _set_preview_pose(index: int) -> void:
 		_update_camera_transform()
 	if index == 0 and inspector != null:
 		_selection_changed()
+		status_label.text = "静止建模 · 披风固定，动作预览可查看飘动"
 
 func _set_inspector_enabled(node: Node, enabled: bool) -> void:
 	if node is BaseButton:

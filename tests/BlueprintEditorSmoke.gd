@@ -170,10 +170,11 @@ func _run() -> void:
 	check(scene.blueprint.to_dictionary() == preview_data, "Action preview blocks geometry edits")
 	for frame in range(20):
 		await process_frame
-	check(scene.pose_renderer.source_part_count == scene.blueprint.voxels.size() and scene.pose_renderer.pieces.all(func(p): return p.basis.is_equal_approx(Basis.IDENTITY) and p.material_override is StandardMaterial3D), "Running preview keeps cloak cubes rigid and axis aligned to their anchor")
+	check(scene.pose_renderer.source_part_count == scene.blueprint.voxels.size() and scene.pose_renderer.cape_materials.all(func(m): return float(m.get_shader_parameter("wind_strength")) > 0 and float(m.get_shader_parameter("motion_scale")) == 1.0), "Running preview animates the cubic cloak")
 	await capture("cloak")
 	scene._set_preview_pose(0)
 	check(scene.voxel_container.visible and scene.pose_renderer == null, "Stopping preview restores static editable geometry")
+	check(not scene.real_character.equipment_visuals.motion_enabled and scene.voxel_blocks.all(func(block): return block.node.material_override is StandardMaterial3D), "Returning to creation freezes all cape motion and restores exact static picking geometry")
 	scene._open_official(412)
 	await frames()
 	var body_count: int = scene.preview_root.find_children("*", "StaticBody3D", true, false).size()
