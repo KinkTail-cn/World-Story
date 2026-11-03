@@ -64,7 +64,8 @@ func update_motion(delta: float, speed: float, airborne: bool, swimming: bool, s
 		desired *= 0.65
 	if sitting:
 		desired = 0.0
-	cape_wind = lerpf(cape_wind, desired, minf(delta * (8.5 if desired > cape_wind or sitting else 7.5), 1.0))
+	var response := 8.0 if sitting else (5.5 if desired > cape_wind else 3.6)
+	cape_wind = lerpf(cape_wind, desired, 1.0 - exp(-maxf(delta, 0.0) * response))
 	_sync_cape_motion()
 
 func set_motion_enabled(enabled: bool) -> void:
@@ -98,7 +99,7 @@ func _piece(slot: int, parent: Node3D, pos: Vector3, size: Vector3, tint: Color 
 	piece.material_override = material
 	piece.position = pos
 	if slot == 5:
-		piece.custom_aabb = mesh.get_aabb().grow(1.0)
+		piece.custom_aabb = mesh.get_aabb().grow(1.6)
 	piece.visible = false
 	parent.add_child(piece)
 	pieces[slot].append(piece)

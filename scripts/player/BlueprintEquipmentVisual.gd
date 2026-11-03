@@ -46,13 +46,14 @@ func build(data: Dictionary, character: Node3D = null) -> void:
 			cape_materials.append(piece.material_override)
 			piece.material_override.set_shader_parameter("motion_scale", 1.0 if motion_enabled else 0.0)
 			piece.material_override.set_shader_parameter("wind_strength", wind_strength)
+			piece.material_override.set_shader_parameter("cape_length", clampf(cape_bounds.size.y, 0.005, 1.6))
 		if parts.size() == 1 and not moving_cape:
 			piece.mesh = Geometry.mesh(part)
 			piece.transform = Geometry.local_transform(part, category) if character != null else Geometry.character_transform(part, category)
 		else:
 			piece.mesh = _merged_mesh(parts, category, character != null, moving_cape, cape_bounds)
 		if moving_cape:
-			piece.custom_aabb = piece.mesh.get_aabb().grow(1.0)
+			piece.custom_aabb = piece.mesh.get_aabb().grow(1.6)
 		if character != null:
 			var parent: Node3D = character.get(bone)
 			parent.add_child(piece)
