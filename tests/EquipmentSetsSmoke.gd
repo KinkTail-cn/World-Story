@@ -2,6 +2,8 @@ extends SceneTree
 
 const Sets = preload("res://scripts/content/EquipmentSets.gd")
 const Models = preload("res://scripts/player/EquipmentModels.gd")
+const Cubes = preload("res://scripts/content/CubeParts.gd")
+const Data = preload("res://scripts/blueprint/BlueprintData.gd")
 const Items = preload("res://scripts/inventory/ItemCatalog.gd")
 const Inventory = preload("res://scripts/inventory/Inventory.gd")
 const Character = preload("res://scripts/player/CharacterVisual.gd")
@@ -64,12 +66,13 @@ func _run() -> void:
 			for piece in visual.pieces:
 				correct_bones = correct_bones and bones.has(piece.get_parent())
 			check(correct_bones, "Every mesh follows its animated body part")
+			check(Models.parts(ids[slot]).all(func(p): return p.shape == "box" and p.rotation.is_zero_approx() and Cubes.is_cube(p.size)), "Every built-in source part is an unrotated cube")
 		var original = character.equipment_visuals.set_visuals[0]
 		character.equipment_visuals.apply_equipment(ids)
 		check(character.equipment_visuals.set_visuals[0] == original, "Unchanged loadout reuses its models")
 		for frame in range(90):
 			character.animate(1.0 / 60.0, 7.8, false, false, false, false, false, true)
-		check(float(character.equipment_visuals.set_visuals[5].cloth_materials[0].get_shader_parameter("wind_strength")) > 0.8, "New cape responds to running wind")
+		check(character.equipment_visuals.set_visuals[5].pieces.all(func(p): return p.basis.is_equal_approx(Basis.IDENTITY) and p.material_override is StandardMaterial3D), "Running keeps the cubic cape rigid")
 		character.animate(0.1, 0.0, false, false, false, false, true)
 		check(character.equipment_visuals.set_visuals[2].pieces[0].global_transform.is_finite(), "Outfit remains attached while sitting")
 	check(seen.size() == 21, "All 21 new pieces have been exercised")
@@ -140,7 +143,8 @@ func _run() -> void:
 	check(restored.inventory.equipment == mixed, "Saved mixed outfit IDs survive loading")
 	for slot in range(7):
 		check(restored.player.visual.equipment_visuals.set_visuals[slot].item_id == mixed[slot], "Loading rebuilds each new equipment model")
-	check(restored.inventory.bag.has(custom), "Saved backpack keeps replaced custom gear")
+	custom.blueprint = Data.from_dictionary(custom.blueprint).to_dictionary()
+	check(restored.inventory.bag.has(custom), "Saved backpack keeps replaced custom gear in canonical cubic format")
 	saves.delete_save()
 	restored.queue_free()
 	game.queue_free()

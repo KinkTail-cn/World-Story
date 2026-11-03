@@ -118,26 +118,11 @@ func translate_selected(delta: Vector3) -> bool:
 			Geometry.set_character_transform(part, category, transform)
 	return record(before)
 
-func rotate_selected(degrees: Vector3, about_anchor: bool = false) -> bool:
-	var before := snapshot()
-	var parts := selected_parts().filter(func(part: Dictionary): return not bool(part.get("locked", false)))
-	if parts.is_empty():
-		return false
-	var pivot := Vector3.ZERO
-	for part in parts:
-		pivot += Geometry.character_transform(part, category).origin
-	pivot /= float(parts.size())
-	if about_anchor and parts.size() == 1:
-		pivot = Geometry.ORIGINS[Geometry.anchor(parts[0], category)]
-	var rotation := Basis.from_euler(degrees * (PI / 180.0))
-	for part in parts:
-		var transform := Geometry.character_transform(part, category)
-		transform.origin = pivot + rotation * (transform.origin - pivot)
-		transform.basis = rotation * transform.basis
-		Geometry.set_character_transform(part, category, transform)
-	return record(before)
-
 func set_properties(properties: Dictionary) -> bool:
+	if properties.has("rotation") or properties.has("cloth") or (properties.has("shape") and properties.shape != "box"):
+		return false
+	if properties.has("offset") and not properties.offset is Array:
+		return false
 	var before := snapshot()
 	for part in selected_parts():
 		if bool(part.get("locked", false)):
@@ -151,14 +136,11 @@ func set_properties(properties: Dictionary) -> bool:
 			bone = str(properties.anchor)
 		if properties.has("offset"):
 			transform.origin = Vector3(Geometry.ORIGINS[bone]) + Geometry.vector(properties.offset)
-		if properties.has("rotation"):
-			transform.basis = Basis.from_euler(Geometry.vector(properties.rotation) * (PI / 180.0))
-		var preserved_offset: Variant = part.get("offset")
-		if properties.has("anchor") or properties.has("offset") or properties.has("rotation"):
+		if properties.has("anchor") or properties.has("offset"):
 			Geometry.set_character_transform(part, category, transform, bone)
-			if properties.has("rotation") and not properties.has("anchor") and not properties.has("offset") and preserved_offset != null:
-				part["offset"] = preserved_offset
-		for key in ["label", "shape", "dimensions", "mat", "tint", "surface", "cloth", "hidden", "locked"]:
+			if properties.has("offset"):
+				part["offset"] = properties.offset.duplicate()
+		for key in ["label", "dimensions", "mat", "tint", "surface", "hidden", "locked"]:
 			if properties.has(key):
 				var value: Variant = properties[key]
 				part[key] = value.duplicate(true) if value is Dictionary or value is Array else value

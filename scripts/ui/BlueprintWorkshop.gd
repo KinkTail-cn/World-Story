@@ -162,8 +162,6 @@ func _process(delta: float) -> void:
 		return
 	if preview_pose > 0 and is_instance_valid(real_character):
 		real_character.animate(delta, 7.8 if preview_pose == 1 else (4.2 if preview_pose == 3 else 0.0), false, preview_pose == 4, preview_pose == 3, preview_pose == 3, preview_pose == 2, preview_pose == 1)
-		if is_instance_valid(pose_renderer):
-			pose_renderer.set_wind(real_character.equipment_visuals.cape_wind)
 	motes_time += delta
 	# 驱动漂浮神圣金光体素微粒轻柔游弋
 	for mote in floating_motes:
@@ -1248,8 +1246,6 @@ func _sync_voxels() -> void:
 		var cube := MeshInstance3D.new()
 		cube.mesh = Geometry.mesh(voxel)
 		cube.material_override = Materials.create(voxel)
-		if voxel.get("shape", "box") == "cloth":
-			cube.material_override.set_shader_parameter("motion_scale", 0.0)
 		cube.transform = transform
 		voxel_container.add_child(cube)
 
@@ -1466,27 +1462,23 @@ func _placement_from_hit(hit: Dictionary) -> Dictionary:
 	var extent := Geometry.dimensions(brush)
 	if int(brush.get("size", 1)) != current_voxel_size:
 		extent = Vector3.ONE * VOXEL_SIZE * _get_size_scale(current_voxel_size)
-	var rotation := Geometry.vector(brush.get("rotation"))
-	var shape := str(brush.get("shape", "box"))
 	var bone := str(brush.get("anchor", ""))
-	var part := Geometry.primitive(current_category, Vector3.ZERO, extent, rotation, shape, bone)
+	var part := Geometry.primitive(current_category, Vector3.ZERO, extent, bone)
 	part["mat"] = selected_material
 	part["size"] = current_voxel_size
-	for key in ["tint", "surface", "cloth"]:
+	for key in ["tint", "surface"]:
 		if brush.has(key):
 			part[key] = brush[key].duplicate(true) if brush[key] is Dictionary else brush[key]
 	var basis := Geometry.preview_transform(part, current_category).basis
-	if inspector != null and inspector.align_surface():
-		basis = Basis(Quaternion(Vector3.UP, Vector3(hit.normal))) * basis
 	var target: Dictionary = _get_meta(hit.collider, "primitive", {})
 	var standard := Vector3.ONE * VOXEL_SIZE * _get_size_scale(current_voxel_size)
 	var target_extent := Geometry.dimensions(target)
 	var axis := Vector3(_get_normal_offset(hit.normal))
-	var basic: bool = shape == "box" and extent.is_equal_approx(standard) and rotation.is_zero_approx() and (inspector == null or not inspector.align_surface()) and absf(axis.dot(Vector3(hit.normal))) > 0.9999
+	var basic: bool = extent.is_equal_approx(standard) and absf(axis.dot(Vector3(hit.normal))) > 0.9999
 	var target_uniform := is_equal_approx(target_extent.x, target_extent.y) and is_equal_approx(target_extent.x, target_extent.z)
 	var center: Vector3
 	var origin := EquipmentDesign.template_origin(current_category)
-	if basic and (target.is_empty() or (str(target.get("shape", "box")) == "box" and target_uniform and Geometry.vector(target.get("rotation")).is_zero_approx())):
+	if basic and (target.is_empty() or target_uniform):
 		if target.is_empty():
 			center = origin + _template_center(origin, hit.position, hit.normal)
 		else:
@@ -2052,10 +2044,6 @@ func _editor_action(action: String) -> void:
 		"delete": edit_session.erase_selected()
 		"undo": edit_session.undo()
 		"redo": edit_session.redo()
-		"rotate_x", "rotate_y", "rotate_z":
-			var delta := Vector3.ZERO
-			delta[["rotate_x", "rotate_y", "rotate_z"].find(action)] = inspector.angle_step()
-			edit_session.rotate_selected(delta, inspector.pivot_at_anchor())
 
 func _set_preview_pose(index: int) -> void:
 	if index > 0 and preview_pose == 0:

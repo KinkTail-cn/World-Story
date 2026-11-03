@@ -2,7 +2,7 @@ extends Node3D
 
 const Catalog = preload("res://scripts/inventory/ItemCatalog.gd")
 const SHADER = preload("res://shaders/character.gdshader")
-const CAPE_SHADER = preload("res://shaders/cape.gdshader")
+const Cubes = preload("res://scripts/content/CubeParts.gd")
 const BlueprintEquipment = preload("res://scripts/blueprint/BlueprintEquipment.gd")
 const BlueprintVisual = preload("res://scripts/player/BlueprintEquipmentVisual.gd")
 const EquipmentSets = preload("res://scripts/content/EquipmentSets.gd")
@@ -12,8 +12,6 @@ var custom_visuals: Array[Node3D] = [null, null, null, null, null, null, null]
 var set_visuals: Array[Node3D] = [null, null, null, null, null, null, null]
 var equipped_ids: Array[int] = [0, 0, 0, 0, 0, 0, 0]
 var equipped_items: Array = []
-var cape_material := ShaderMaterial.new()
-var cape_wind: float = 0.0
 
 func _ready() -> void:
 	var character = get_parent()
@@ -50,53 +48,14 @@ func _ready() -> void:
 	_piece(6, body, Vector3(0, 0.715, -0.155), Vector3(0.11, 0.09, 0.025), Color("d5b46b"))
 
 func _create_cape(parent: Node3D) -> void:
-	var surface := SurfaceTool.new()
-	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
-	# 采用 8 列 x 16 行的高密度细腻网格，使风中波浪如丝绸般圆润饱满
-	for y in range(16):
-		for x in range(8):
-			for corner in [Vector2(0, 0), Vector2(1, 1), Vector2(1, 0), Vector2(0, 0), Vector2(0, 1), Vector2(1, 1)]:
-				var uv := Vector2((float(x) + corner.x) / 8.0, (float(y) + corner.y) / 16.0)
-				surface.set_uv(uv)
-				surface.set_normal(Vector3.BACK)
-				# 顶点坐标：肩宽 0.40m，下摆自然微扩至 0.48m，垂长 0.82m
-				surface.add_vertex(Vector3((uv.x - 0.5) * (0.40 + uv.y * 0.08), -uv.y * 0.82, 0))
-	cape_material.shader = CAPE_SHADER
-	cape_material.set_shader_parameter("base_color", Catalog.color(106))
-	var cape := MeshInstance3D.new()
-	cape.name = "Equipment_Cape"
-	cape.mesh = surface.commit()
-	cape.material_override = cape_material
-	cape.position = Vector3(0, 1.30, 0.155)
-	# 扩展视锥体包围盒，防止疾跑大后扬时被视锥剔除
-	cape.custom_aabb = AABB(Vector3(-0.6, -1.2, -0.2), Vector3(1.2, 1.4, 1.6))
-	cape.visible = false
-	parent.add_child(cape)
-	pieces[5].append(cape)
+	_piece(5, parent, Vector3(0, 0.89, 0.175), Vector3(0.42, 0.82, 0.0325))
 	_piece(5, parent, Vector3(0, 1.30, 0.17), Vector3(0.42, 0.045, 0.04))
 
-## 实时更新披风空气动力学风力响应与飘动缓动
-func update_motion(delta: float, speed: float, airborne: bool, swimming: bool, sitting: bool) -> void:
-	# 奔跑时风力响应更自然澎湃，速度达到 4.8（跑步）时具有良好飘拂感，冲刺（7.8）时完全展开
-	var desired: float = clampf(speed / 5.2, 0.0, 1.65)
-	if airborne and speed > 0.5:
-		desired = maxf(desired, 1.1)
-	if swimming:
-		desired *= 0.65
-	if sitting:
-		desired = 0.0
-	# 敏捷气流动力响应：起步灵敏飘扬，静止或坐下时平稳归位贴服
-	var lerp_speed: float = 8.5 if (desired > cape_wind or sitting) else 7.5
-	cape_wind = lerpf(cape_wind, desired, minf(delta * lerp_speed, 1.0))
-	cape_material.set_shader_parameter("wind_strength", cape_wind)
-	if is_instance_valid(set_visuals[5]):
-		set_visuals[5].set_wind(cape_wind)
-	if is_instance_valid(custom_visuals[5]):
-		custom_visuals[5].set_wind(cape_wind)
+func update_motion(_delta: float, _speed: float, _airborne: bool, _swimming: bool, _sitting: bool) -> void:
+	pass
 
 func _piece(slot: int, parent: Node3D, pos: Vector3, size: Vector3, tint: Color = Color.TRANSPARENT) -> void:
-	var mesh := BoxMesh.new()
-	mesh.size = size
+	var mesh := Cubes.mesh(size)
 	var material := ShaderMaterial.new()
 	material.shader = SHADER
 	material.set_shader_parameter("base_color", tint if tint.a > 0.0 else Catalog.color(101 + slot))
@@ -127,7 +86,6 @@ func apply_equipment(ids: Array[int], items: Array = []) -> void:
 			var created = SetVisual.new()
 			add_child(created)
 			created.build(set_id, get_parent())
-			created.set_wind(cape_wind)
 			set_visuals[slot] = created
 		var previous = custom_visuals[slot]
 		if is_instance_valid(previous):

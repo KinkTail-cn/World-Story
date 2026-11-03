@@ -1,6 +1,8 @@
 extends RefCounted
 
 const Sets = preload("res://scripts/content/EquipmentSets.gd")
+const Cubes = preload("res://scripts/content/CubeParts.gd")
+static var _parts: Dictionary = {}
 const BONE_ORIGINS := {
 	"body": Vector3.ZERO, "head": Vector3(0, 1.575, 0),
 	"left_arm": Vector3(-0.3375, 1.35, 0), "right_arm": Vector3(0.3375, 1.35, 0),
@@ -10,6 +12,10 @@ const BONE_ORIGINS := {
 }
 
 static func parts(id: int) -> Array[Dictionary]:
+	if _parts.has(id):
+		var cached: Array[Dictionary] = []
+		cached.assign(_parts[id].duplicate(true))
+		return cached
 	var result: Array[Dictionary] = []
 	if not Sets.is_new(id):
 		return result
@@ -19,7 +25,21 @@ static func parts(id: int) -> Array[Dictionary]:
 		"ranger": _ranger(result, Sets.slot(id), colors)
 		"knight": _knight(result, Sets.slot(id), colors)
 		"mage": _mage(result, Sets.slot(id), colors)
-	return result
+	var weights: Array[int] = []
+	for part in result:
+		weights.append(Cubes.weight(part.size, part.rotation, part.shape, {"flare": 0.06}))
+	var budgets := Cubes.budgets(weights, 1024)
+	var cubes: Array[Dictionary] = []
+	for index in result.size():
+		var source: Dictionary = result[index]
+		var origin: Vector3 = source.pos
+		if source.shape == "cloth":
+			origin.y -= source.size.y * 0.5
+		var cloth := {"trim": Color(source.get("trim", Color.WHITE)).to_html(false), "emblem": int(source.get("emblem", 0)), "flare": 0.06}
+		for cell in Cubes.sample(source.size, source.rotation, source.shape, cloth, budgets[index]):
+			cubes.append({"bone": source.bone, "pos": origin + Vector3(cell.pos), "size": Vector3.ONE * float(cell.edge), "tint": Color(str(cell.tint)) if cell.has("tint") else source.tint, "rotation": Vector3.ZERO, "shape": "box"})
+	_parts[id] = cubes.duplicate(true)
+	return cubes
 
 static func _box(parts: Array[Dictionary], bone: String, pos: Vector3, size: Vector3, tint: Color, rotation: Vector3 = Vector3.ZERO) -> void:
 	parts.append({"bone": bone, "pos": pos, "size": size, "tint": tint, "rotation": rotation, "shape": "box"})
@@ -121,7 +141,9 @@ static func _mage(parts: Array[Dictionary], slot: int, c: Dictionary) -> void:
 		0:
 			_box(parts, "head", Vector3(0, 0.25, 0), Vector3(0.68, 0.055, 0.61), c.dark)
 			_box(parts, "head", Vector3(0, 0.31, 0), Vector3(0.46, 0.13, 0.44), c.main)
-			parts.append({"bone": "head", "pos": Vector3(-0.015, 0.52, 0.015), "size": Vector3(0.49, 0.44, 0.49), "tint": c.main, "rotation": Vector3(0, PI * 0.25, -0.12), "shape": "cone"})
+			for layer in range(6):
+				var width := 0.42 - float(layer) * 0.065
+				_box(parts, "head", Vector3(-0.015, 0.36 + float(layer) * 0.065, 0.015), Vector3(width, 0.065, width), c.main)
 			_box(parts, "head", Vector3(0, 0.315, -0.23), Vector3(0.46, 0.045, 0.035), c.trim)
 			_box(parts, "head", Vector3(0, 0.36, -0.25), Vector3(0.065, 0.12, 0.04), c.gem)
 		1:

@@ -4,6 +4,7 @@ extends Node3D
 ## 为木短剑、石战斧、铁长剑、金细剑、黑曜石巨剑提供日系体素 3D 模型与展示姿态
 
 const ItemCatalog = preload("res://scripts/inventory/ItemCatalog.gd")
+const Cubes = preload("res://scripts/content/CubeParts.gd")
 
 var weapon_id: int = 301
 var is_display: bool = false
@@ -170,8 +171,7 @@ func _build_obsidian_colossus(root: Node3D) -> void:
 
 ## 辅助快速体素立方体构造函数
 func _box(parent: Node, pos: Vector3, size: Vector3, tint: Color) -> MeshInstance3D:
-	var mesh := BoxMesh.new()
-	mesh.size = size
+	var mesh := Cubes.mesh(size)
 	var material := StandardMaterial3D.new()
 	material.albedo_color = tint
 	material.roughness = 0.72

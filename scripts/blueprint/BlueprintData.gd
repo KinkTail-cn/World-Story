@@ -4,7 +4,9 @@ class_name BlueprintData
 
 const Geometry = preload("res://scripts/blueprint/BlueprintGeometry.gd")
 const Materials = preload("res://scripts/blueprint/BlueprintMaterials.gd")
+const Migration = preload("res://scripts/blueprint/BlueprintMigration.gd")
 const MAX_PARTS: int = 4096
+const SCHEMA_VERSION: int = 3
 
 var name: String = "未命名蓝图"
 var category: String = "道具摆件"
@@ -12,7 +14,7 @@ var grid_size: int = 8
 var cells: Array[int] = []
 var voxels: Array[Dictionary] = []
 var created_at: String = ""
-var schema_version: int = 2
+var schema_version: int = SCHEMA_VERSION
 var source_item_id: int = 0
 var _next_id: int = 1
 
@@ -56,7 +58,7 @@ func add_voxel(pos: Vector3i, material_id: int, part: String, size_mode: int = 1
 	voxels.append(entry)
 
 func add_part(entry: Dictionary) -> String:
-	if voxels.size() >= MAX_PARTS:
+	if entry.is_empty() or not Geometry.is_cube(entry) or voxels.size() >= MAX_PARTS:
 		return ""
 	var part := entry.duplicate(true)
 	while find_part("part_%d" % _next_id) >= 0:
@@ -139,7 +141,7 @@ static func _serialized(value: Variant) -> Variant:
 		for element in value:
 			result.append(_serialized(element))
 		return result
-	# Stable micrometre / microdegree precision prevents JSON's display-number
+	# Stable micrometre precision prevents JSON's display-number
 	# formatting from changing snapshots on every save-and-load cycle.
 	if value is float:
 		return roundf(value * 1000000.0) / 1000000.0
@@ -148,7 +150,7 @@ static func _serialized(value: Variant) -> Variant:
 static func from_dictionary(value: Dictionary):
 	var script = load("res://scripts/blueprint/BlueprintData.gd")
 	var result = script.new(str(value.get("name", "未命名蓝图")), str(value.get("category", "道具摆件")), int(value.get("grid_size", 8)))
-	result.created_at = str(value.get("created_at", result.created_at))
+	result.created_at = str(value.get("created_at", ""))
 	result.source_item_id = int(value.get("source_item_id", 0))
 	var source: Array = value.get("cells", [])
 	result.cells.clear()
@@ -171,6 +173,10 @@ static func from_dictionary(value: Dictionary):
 			entry.cloth["emblem"] = int(entry.cloth.get("emblem", 0))
 			entry.cloth["wind"] = float(entry.cloth.get("wind", 1.0))
 		result.voxels.append(entry)
+	if int(value.get("schema_version", 1)) < SCHEMA_VERSION:
+		result.ensure_ids()
+		result.voxels = Migration.convert_all(result.voxels, result.category, MAX_PARTS)
+		result.ensure_ids()
 	return result
 
 static func validation_error(value: Dictionary) -> String:
@@ -179,7 +185,7 @@ static func validation_error(value: Dictionary) -> String:
 			return "蓝图名称或类别格式无效"
 	if value.has("source_item_id") and not _integer(value.source_item_id):
 		return "蓝图来源 ID 无效"
-	if value.has("schema_version") and (not _integer(value.schema_version) or value.schema_version < 1 or value.schema_version > 2):
+	if value.has("schema_version") and (not _integer(value.schema_version) or value.schema_version < 1 or value.schema_version > SCHEMA_VERSION):
 		return "蓝图版本不受支持"
 	if value.has("grid_size") and (not _integer(value.grid_size) or int(value.grid_size) not in [8, 12, 16]):
 		return "蓝图网格尺寸无效"
@@ -204,7 +210,8 @@ static func validation_error(value: Dictionary) -> String:
 		var mode: Variant = voxel.get("size", 1)
 		if not _integer(material) or material < 1 or material > 8 or not _integer(mode) or mode < 1 or mode > 4:
 			return "蓝图材料或方块尺寸无效"
-		if str(voxel.get("shape", "box")) not in Geometry.SHAPES or str(voxel.get("surface", "solid")) not in Materials.SURFACES:
+		var legacy := int(value.get("schema_version", 1)) < SCHEMA_VERSION
+		if str(voxel.get("shape", "box")) not in (["box", "wedge", "cone", "cloth"] if legacy else Geometry.SHAPES) or str(voxel.get("surface", "solid")) not in Materials.SURFACES:
 			return "蓝图形状或表面类型无效"
 		if voxel.has("anchor") and not Geometry.ORIGINS.has(str(voxel.anchor)):
 			return "蓝图身体挂点无效"
@@ -215,6 +222,8 @@ static func validation_error(value: Dictionary) -> String:
 			var extent := Geometry.vector(voxel.dimensions)
 			if minf(extent.x, minf(extent.y, extent.z)) < 0.005 or maxf(extent.x, maxf(extent.y, extent.z)) > 4.0:
 				return "部件尺寸应在 0.005 至 4 米之间"
+		if not legacy and not Geometry.is_cube(voxel):
+			return "只允许正放立方体，三个方向边长必须相等，不能旋转"
 		if voxel.has("offset"):
 			var offset := Geometry.vector(voxel.offset).abs()
 			if maxf(offset.x, maxf(offset.y, offset.z)) > 64.0:

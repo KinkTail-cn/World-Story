@@ -1,5 +1,7 @@
 extends Node3D
 
+const Cubes = preload("res://scripts/content/CubeParts.gd")
+
 var item_id: int = 108
 
 func _ready() -> void:
@@ -16,13 +18,11 @@ func _ready() -> void:
 		for i in range(-2, 3):
 			_box(Vector3(0, 0.032, i * 0.075), Vector3(0.53, 0.002, 0.004), Color("89bad9"))
 		_box(Vector3(0, 0.034, 0), Vector3(0.12, 0.002, 0.004), Color.WHITE)
-	var pen := _box(Vector3(0.26, 0.06, 0.02), Vector3(0.026, 0.026, 0.30), Color("45392f"))
-	pen.rotation.y = -0.3
+	_box(Vector3(0.26, 0.06, 0.02), Vector3(0.026, 0.026, 0.30), Color("45392f"))
 	_box(Vector3(0.3, 0.06, -0.13), Vector3(0.025, 0.025, 0.05), Color("e8c279"))
 
 func _box(pos: Vector3, size: Vector3, tint: Color) -> MeshInstance3D:
-	var mesh := BoxMesh.new()
-	mesh.size = size
+	var mesh := Cubes.mesh(size)
 	var material := StandardMaterial3D.new()
 	material.albedo_color = tint
 	material.roughness = 0.9

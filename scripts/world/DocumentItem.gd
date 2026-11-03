@@ -3,6 +3,7 @@ extends StaticBody3D
 const Models = preload("res://scripts/player/DocumentVisual.gd")
 const Manager = preload("res://scripts/blueprint/BlueprintManager.gd")
 const Catalog = preload("res://scripts/inventory/ItemCatalog.gd")
+const Data = preload("res://scripts/blueprint/BlueprintData.gd")
 var item_id: int = 108
 var support_cell := Vector3i.ZERO
 var contents = Manager.new()
@@ -42,7 +43,6 @@ func restore_data(data: Dictionary) -> void:
 	contents.current = null
 	for blueprint in data.get("blueprints", []):
 		if blueprint is Dictionary:
-			contents.blueprints.append(blueprint)
+			contents.blueprints.append(Data.from_dictionary(blueprint).to_dictionary())
 	if not contents.blueprints.is_empty():
-		var Data = preload("res://scripts/blueprint/BlueprintData.gd")
 		contents.current = Data.from_dictionary(contents.blueprints.back())

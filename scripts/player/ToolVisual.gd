@@ -1,6 +1,7 @@
 extends Node3D
 
 const ItemCatalog = preload("res://scripts/inventory/ItemCatalog.gd")
+const Cubes = preload("res://scripts/content/CubeParts.gd")
 
 var tool_id: int = 201
 var is_display: bool = false
@@ -111,8 +112,7 @@ func build() -> void:
 			_box(root, Vector3(0, top_y + 0.07, 0.008), Vector3(0.044, 0.15, 0.03), dark_c)
 
 func _box(parent: Node, pos: Vector3, size: Vector3, tint: Color) -> MeshInstance3D:
-	var mesh := BoxMesh.new()
-	mesh.size = size
+	var mesh := Cubes.mesh(size)
 	var material := StandardMaterial3D.new()
 	material.albedo_color = tint
 	material.roughness = 0.75

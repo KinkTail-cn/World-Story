@@ -28,19 +28,20 @@ func _run() -> void:
 	var first: Dictionary = scene.blueprint.voxels[0]
 	var uid: String = first.uid
 	scene.edit_session.select([uid])
-	var original_rotation: Array = first.rotation.duplicate()
-	scene.inspector.get_node("%Rotation").get_child(2).value = 45.0
+	var original_dimensions: Array = first.dimensions.duplicate()
+	scene.inspector.get_node("%Edge").value = 0.065
 	scene.inspector.get_node("%Apply").pressed.emit()
-	check(absf(float(scene.blueprint.voxels[0].rotation[2]) - 45.0) < 0.001, "Inspector applies rotation through the visible button")
+	check(Geometry.dimensions(scene.blueprint.voxels[0]).is_equal_approx(Vector3.ONE * 0.065), "One edge input changes all three dimensions together")
+	check(scene.inspector.get_node_or_null("%Rotation") == null and scene.inspector.get_node_or_null("%Dimensions") == null and scene.inspector.get_node_or_null("%Wind") == null, "Inspector exposes no rotation, axis stretching or cloth deformation controls")
 	var key := InputEventKey.new()
 	key.pressed = true
 	key.ctrl_pressed = true
 	key.keycode = KEY_Z
 	scene._unhandled_input(key)
-	check(scene.blueprint.voxels[0].rotation == original_rotation, "Ctrl+Z undoes the inspector transaction")
+	check(scene.blueprint.voxels[0].dimensions == original_dimensions, "Ctrl+Z undoes the edge transaction")
 	key.keycode = KEY_Y
 	scene._unhandled_input(key)
-	check(absf(float(scene.blueprint.voxels[0].rotation[2]) - 45.0) < 0.001, "Ctrl+Y restores the inspector transaction")
+	check(Geometry.dimensions(scene.blueprint.voxels[0]).is_equal_approx(Vector3.ONE * 0.065), "Ctrl+Y restores all equal edges")
 	check(scene.get_node("%PartList").item_count == scene.blueprint.voxels.size(), "Every official geometry piece appears in the parts list")
 	await capture("official")
 	var original_size := root.size
@@ -57,30 +58,31 @@ func _run() -> void:
 	await frames()
 	scene._select_category("头部装备", true)
 	scene._create_new_design()
-	var wedge := Geometry.primitive("头部装备", Vector3(0, 1.8, 1.0), Vector3(0.52, 0.26, 0.52), Vector3(0, 180, 0), "wedge", "head")
-	var wedge_uid: String = scene.edit_session.add(wedge)
-	var box := Geometry.primitive("头部装备", Vector3(0.70, 1.8, 1.0), Vector3.ONE * 0.13, Vector3.ZERO, "box", "head")
+	var cube := Geometry.primitive("头部装备", Vector3(0, 1.8, 1.0), Vector3.ONE * 0.26, "head")
+	var cube_uid: String = scene.edit_session.add(cube)
+	var box := Geometry.primitive("头部装备", Vector3(0.70, 1.8, 1.0), Vector3.ONE * 0.13, "head")
 	var box_uid: String = scene.edit_session.add(box)
 	scene._set_editor_mode("add")
-	scene.brush = {"shape": "box", "dimensions": [0.13, 0.065, 0.065], "rotation": [15.0, 45.0, 0.0], "mat": 1, "size": 1}
+	scene.brush = {"shape": "box", "dimensions": [0.065, 0.065, 0.065], "mat": 1, "size": 1}
 	scene.inspector.set_values(scene.brush)
-	var slope := Vector3(0, 1.8, 1.0)
-	var normal := Vector3(0, 0.52, -0.26).normalized()
-	scene.preview_camera.position = slope + normal * 2.0
-	scene.preview_camera.look_at(slope)
+	var surface := Vector3(0, 1.8, 1.13)
+	var normal := Vector3.BACK
+	scene.preview_camera.position = surface + normal * 2.0
+	scene.preview_camera.look_at(surface)
 	await frames()
-	var point := project(slope)
+	var point := project(surface)
 	var hit: Dictionary = scene._ray_hit(point)
-	check(not hit.is_empty() and hit.collider.get_meta("uid", "") == wedge_uid, "Real viewport ray picks an editable wedge")
+	check(not hit.is_empty() and hit.collider.get_meta("uid", "") == cube_uid, "Real viewport ray picks an editable cube face")
 	scene._update_hover_preview(point)
 	var preview: Transform3D = scene.hover_indicator.transform
 	var history_size: int = scene.edit_session.undo_stack.size()
 	click(point)
 	await frames()
 	var added: Dictionary = scene.blueprint.voxels.back()
-	check(scene.blueprint.voxels.size() == 3 and Geometry.preview_transform(added, "头部装备").is_equal_approx(preview), "Rotated brush click exactly matches the placement preview")
+	check(scene.blueprint.voxels.size() == 3 and Geometry.preview_transform(added, "头部装备").is_equal_approx(preview) and Geometry.is_cube(added), "Cube click exactly matches the placement preview")
+	check(is_equal_approx(Geometry.preview_transform(added, "头部装备").origin.z - 0.0325, surface.z), "A custom-edge cube sits flush on the target face")
 	check(scene.edit_session.undo_stack.size() == history_size + 1, "Placement is one undo transaction")
-	await capture("wedge")
+	await capture("cubes")
 	scene._set_editor_mode("select")
 	scene.preview_camera.position = Vector3(0.4, 2.3, 4.2)
 	scene.preview_camera.look_at(Vector3(0.35, 1.8, 1.0))
@@ -93,7 +95,7 @@ func _run() -> void:
 	scene.edit_session.set_properties({"locked": true})
 	scene.preview_press_position = Vector2.ONE
 	scene._box_select(scene.preview_container.size - Vector2.ONE, false)
-	check(not scene.edit_session.selection.has(box_uid) and scene.edit_session.selection.has(wedge_uid), "Box selection excludes locked parts")
+	check(not scene.edit_session.selection.has(box_uid) and scene.edit_session.selection.has(cube_uid), "Box selection excludes locked parts")
 	scene.edit_session.select([box_uid])
 	scene.inspector.get_node("%Locked").set_pressed_no_signal(false)
 	scene.inspector.flags_changed.emit("locked", false)
@@ -147,8 +149,8 @@ func _run() -> void:
 	key.keycode = KEY_B
 	scene._unhandled_input(key)
 	check(scene.editor_mode == "select", "Typing in the name field does not switch tools")
-	scene.name_edit.text = "斜面测试"
-	scene.name_edit.text_changed.emit("斜面测试")
+	scene.name_edit.text = "立方体测试"
+	scene.name_edit.text_changed.emit("立方体测试")
 	key.ctrl_pressed = true
 	key.keycode = KEY_S
 	scene._unhandled_input(key)
@@ -156,10 +158,9 @@ func _run() -> void:
 	scene.name_edit.release_focus()
 	scene._open_official(426)
 	scene.edit_session.select([scene.blueprint.voxels[0].uid])
-	scene.inspector.get_node("%Wind").value = 0.6
-	scene.inspector.get_node("%Flare").value = 0.15
+	scene.inspector.get_node("%Edge").value = 0.0325
 	scene._editor_action("apply")
-	check(is_equal_approx(float(scene.blueprint.voxels[0].cloth.flare), 0.15), "Cloth width profile is editable through the public inspector")
+	check(Geometry.dimensions(scene.blueprint.voxels[0]).is_equal_approx(Vector3.ONE * 0.0325), "Cloak decoration edits use the same cube edge control")
 	scene._set_preview_pose(1)
 	var preview_data: Dictionary = scene.blueprint.to_dictionary()
 	scene._handle_click(Vector2(200, 200), true)
@@ -169,8 +170,8 @@ func _run() -> void:
 	check(scene.blueprint.to_dictionary() == preview_data, "Action preview blocks geometry edits")
 	for frame in range(20):
 		await process_frame
-	check(scene.pose_renderer.cloth_materials.size() == 1 and float(scene.pose_renderer.cloth_materials[0].get_shader_parameter("wind_strength")) > 0.0, "Editable cloak animates in the action preview")
-	await capture("cloth")
+	check(scene.pose_renderer.source_part_count == scene.blueprint.voxels.size() and scene.pose_renderer.pieces.all(func(p): return p.basis.is_equal_approx(Basis.IDENTITY) and p.material_override is StandardMaterial3D), "Running preview keeps cloak cubes rigid and axis aligned to their anchor")
+	await capture("cloak")
 	scene._set_preview_pose(0)
 	check(scene.voxel_container.visible and scene.pose_renderer == null, "Stopping preview restores static editable geometry")
 	scene._open_official(412)

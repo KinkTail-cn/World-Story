@@ -3,6 +3,7 @@ extends SceneTree
 const Inventory = preload("res://scripts/inventory/Inventory.gd")
 const Document = preload("res://scripts/world/DocumentItem.gd")
 const SaveSystem = preload("res://scripts/system/SaveSystem.gd")
+const Blueprint = preload("res://scripts/blueprint/BlueprintData.gd")
 var failures: int = 0
 var checks: int = 0
 
@@ -64,7 +65,7 @@ func _run() -> void:
 	before = creative.bag.duplicate(true)
 	check(creative.give_creative_item(301), "Full creative bag grows")
 	check(creative.bag.size() == 25 and creative.bag.slice(0, 24) == before, "Catalog grant preserves all existing slots")
-	var payload := {"notes": ["field notes"], "blueprints": [{"name": "House", "category": "building", "voxels": [{"pos": [1, 2, 3], "id": 5}]}], "custom_name": "Journal"}
+	var payload := {"notes": ["field notes"], "blueprints": [{"name": "House", "category": "building", "voxels": [{"pos": [1, 2, 3], "mat": 5, "part": "building", "size": 1}]}], "custom_name": "Journal"}
 	check(creative.add_document_item(108, payload), "Creative unique document grows bag")
 	var doc_index: int = creative.bag.size() - 1
 	payload.notes.append("external mutation")
@@ -122,6 +123,9 @@ func _run() -> void:
 	player._mine()
 	check(world.block == 0 and survival.bag[0].id == 3, "Successful mining grants block")
 
+	var migrated_original := original.duplicate(true)
+	migrated_original.blueprints = original.blueprints.map(func(design): return Blueprint.from_dictionary(design).to_dictionary())
+	check(migrated_original.blueprints[0].name == "House" and migrated_original.blueprints[0].voxels[0].pos == [1, 2, 3] and migrated_original.blueprints[0].voxels[0].mat == 5, "Schema migration preserves document title, geometry and material")
 	for id in [108, 109]:
 		var doc := Document.new()
 		doc.item_id = id
@@ -138,12 +142,12 @@ func _run() -> void:
 		player.document_mined.connect(order_check)
 		player._mine()
 		player.document_mined.disconnect(order_check)
-		check(world.removed and survival.bag[0].notes == original.notes and survival.bag[0].blueprints == original.blueprints, "Recovery preserves both content arrays")
+		check(world.removed and survival.bag[0].notes == original.notes and survival.bag[0].blueprints == migrated_original.blueprints, "Recovery preserves notes and migrated blueprint contents")
 		player.target_id = 3
 		player.target_cell = Vector3i(10, 1, 10)
 		player.target_normal = Vector3i.UP
 		player._place()
-		check(world.placed_document.contents.notes == original.notes and world.placed_document.contents.blueprints == original.blueprints, "Placement restores both content arrays")
+		check(world.placed_document.contents.notes == original.notes and world.placed_document.contents.blueprints == migrated_original.blueprints, "Placement restores notes and migrated blueprint contents")
 		check(survival.bag[0].id == 0, "Placed document consumes slot")
 	player.inventory = creative
 	creative.bag[0] = original.duplicate(true)
@@ -152,7 +156,7 @@ func _run() -> void:
 	check(world.placed_document.get_meta("inventory_custom_name") == original.custom_name, "Placement retains document title")
 	player.target_document = world.placed_document
 	player._mine()
-	check(creative.bag[0] == original, "Creative recovery preserves document identity metadata")
+	check(creative.bag[0] == migrated_original, "Creative recovery preserves identity metadata while upgrading the blueprint schema")
 	creative.bag[0] = {"id": 14, "count": 4}
 
 	var panel = preload("res://scenes/InventoryPanel.tscn").instantiate()
@@ -205,7 +209,11 @@ func _run() -> void:
 	var loaded = Inventory.new()
 	saves.apply_inventory(loaded, saves.load_game().inventory)
 	check(loaded.bag.size() == creative.bag.size(), "Save round trip preserves expanded capacity")
-	check(loaded.bag == creative.bag, "Save round trip preserves all document metadata")
+	var expected_bag: Array = creative.bag.duplicate(true)
+	for item in expected_bag:
+		if item.has("blueprints"):
+			item.blueprints = item.blueprints.map(func(design): return Blueprint.from_dictionary(design).to_dictionary())
+	check(loaded.bag == expected_bag, "Save round trip preserves all content and upgrades historical blueprint schemas")
 	saves.delete_save()
 	panel.free()
 	notebook.free()

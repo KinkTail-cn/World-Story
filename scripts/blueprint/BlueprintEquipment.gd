@@ -26,6 +26,8 @@ static func size_scale(mode: int) -> float:
 
 static func active_voxels(blueprint: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
+	if int(blueprint.get("schema_version", 1)) < Data.SCHEMA_VERSION:
+		blueprint = Data.from_dictionary(blueprint).to_dictionary()
 	for voxel in blueprint.get("voxels", []):
 		if voxel is Dictionary and str(voxel.get("part", "")) == str(blueprint.get("category", "")):
 			result.append(voxel)

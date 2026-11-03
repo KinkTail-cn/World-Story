@@ -221,11 +221,11 @@ func apply_inventory(inventory, data: Dictionary) -> void:
 				if source[i].has("custom_name"):
 					entry["custom_name"] = str(source[i].custom_name)
 				if source[i].has("blueprints"):
-					entry["blueprints"] = source[i].blueprints.duplicate(true)
+					entry["blueprints"] = source[i].blueprints.map(func(design: Dictionary): return Blueprint.from_dictionary(design).to_dictionary())
 				if source[i].has("notes"):
 					entry["notes"] = source[i].notes.duplicate(true)
 				if source[i].get("blueprint") is Dictionary:
-					entry["blueprint"] = source[i].blueprint.duplicate(true)
+					entry["blueprint"] = Blueprint.from_dictionary(source[i].blueprint).to_dictionary()
 				slots[i] = entry
 	var equipment: Array = data.get("equipment", [])
 	for i in range(mini(inventory.equipment.size(), equipment.size())):
@@ -235,6 +235,8 @@ func apply_inventory(inventory, data: Dictionary) -> void:
 		inventory.equipment_items[i] = {"id": 0, "count": 0}
 		if i < equipped.size() and equipped[i] is Dictionary and int(equipped[i].get("id", 0)) == inventory.equipment[i]:
 			inventory.equipment_items[i] = equipped[i].duplicate(true)
+			if inventory.equipment_items[i].get("blueprint") is Dictionary:
+				inventory.equipment_items[i]["blueprint"] = Blueprint.from_dictionary(inventory.equipment_items[i].blueprint).to_dictionary()
 	_emit_changed(inventory)
 
 func save_player(player) -> Dictionary:

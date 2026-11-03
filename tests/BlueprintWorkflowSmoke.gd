@@ -31,29 +31,34 @@ func _run() -> void:
 	check(editor.visible and paused, "P opens the modeling editor from the running game")
 	var official := Presets.design_for_item(412)
 	editor._open_official(412)
-	editor.name_edit.text = "我的斜肩甲"
-	editor.name_edit.text_changed.emit("我的斜肩甲")
-	var shoulder: String = editor.blueprint.voxels[4].uid
-	var original_dimensions: Array = editor.blueprint.voxels[4].dimensions.duplicate()
-	var original_offset: Array = editor.blueprint.voxels[4].offset.duplicate()
+	editor.name_edit.text = "我的方块肩甲"
+	editor.name_edit.text_changed.emit("我的方块肩甲")
+	var shoulder_index := 0
+	for index in editor.blueprint.voxels.size():
+		if editor.blueprint.voxels[index].anchor == "left_arm":
+			shoulder_index = index
+			break
+	var shoulder: String = editor.blueprint.voxels[shoulder_index].uid
+	var original_dimensions: Array = editor.blueprint.voxels[shoulder_index].dimensions.duplicate()
+	var original_offset: Array = editor.blueprint.voxels[shoulder_index].offset.duplicate()
 	editor._set_editor_mode("select")
 	editor.edit_session.select([shoulder])
-	editor.inspector.get_node("%Rotation").get_child(2).value = 30.0
+	editor.inspector.get_node("%Position").get_child(0).value = float(original_offset[0]) + 0.0325
 	editor.inspector.tint_picker.color = Color("5b8799")
 	editor.inspector.tint_picker.color_changed.emit(Color("5b8799"))
 	editor.inspector.get_node("%Apply").pressed.emit()
 	var source_index: int = editor.blueprint.find_part(shoulder)
-	check(absf(float(editor.blueprint.voxels[source_index].rotation[2]) - 30.0) < 0.001 and editor.blueprint.voxels[source_index].anchor == "left_arm", "User edits the official shoulder with an explicit arm anchor")
-	check(int(editor.blueprint.voxels[source_index].mat) == int(official.voxels[4].mat), "Editing angles and tint preserves the selected part's physical material")
-	check(editor.blueprint.voxels[source_index].dimensions == original_dimensions and editor.blueprint.voxels[source_index].offset == original_offset, "Changing angle/dye never rounds untouched dimensions or anchor offsets")
+	check(not is_equal_approx(float(editor.blueprint.voxels[source_index].offset[0]), float(original_offset[0])) and editor.blueprint.voxels[source_index].anchor == "left_arm" and Geometry.is_cube(editor.blueprint.voxels[source_index]), "User moves an official cube with an explicit arm anchor")
+	check(int(editor.blueprint.voxels[source_index].mat) == int(official.voxels[shoulder_index].mat), "Moving and tinting preserves the physical material")
+	check(editor.blueprint.voxels[source_index].dimensions == original_dimensions and editor.blueprint.voxels[source_index].offset[1] == original_offset[1] and editor.blueprint.voxels[source_index].offset[2] == original_offset[2], "Position and dye edits preserve untouched edges and offset axes exactly")
 	check(editor._save_pressed() and not editor.edit_session.dirty(), "Save button persists the edited design through the actual game")
 	var library = Manager.new()
-	check(library.load_json() and library.blueprints.any(func(design): return design.name == "我的斜肩甲" and int(design.schema_version) == 2), "An independent library instance reads the saved version-two design")
+	check(library.load_json() and library.blueprints.any(func(design): return design.name == "我的方块肩甲" and int(design.schema_version) == 3), "An independent library reads the saved cubic design")
 	check(Presets.design_for_item(412) == official, "User changes never alter the official template")
 	var armor: Dictionary = editor._design_snapshot()
 	editor.craft_btn.pressed.emit()
 	var armor_slot: int = game.inventory.bag.size() - 1
-	check(game.inventory.bag[armor_slot].get("custom_name", "") == "我的斜肩甲" and game.inventory.equip_from_bag(armor_slot), "Editor craft button creates an equippable design snapshot")
+	check(game.inventory.bag[armor_slot].get("custom_name", "") == "我的方块肩甲" and game.inventory.equip_from_bag(armor_slot), "Editor craft button creates an equippable design snapshot")
 	check(game.player.visual.equipment_visuals.custom_visuals[1].source_part_count == armor.voxels.size(), "Actual player uses every edited armor component")
 	check(game.hud.inventory_panel.preview_character.equipment_visuals.custom_visuals[1] != null, "Backpack mannequin displays the same custom armor")
 	editor._open_official(426)
@@ -62,16 +67,14 @@ func _run() -> void:
 	editor.edit_session.select([editor.blueprint.voxels[0].uid])
 	editor.inspector.tint_picker.color = Color("3d6873")
 	editor.inspector.tint_picker.color_changed.emit(Color("3d6873"))
-	editor.inspector.get_node("%Flare").value = 0.12
-	editor.inspector.get_node("%Wind").value = 0.7
-	editor.inspector.get_node("%Emblem").select(3)
+	editor.inspector.get_node("%Edge").value = 0.0325
 	editor._editor_action("apply")
-	check(editor._save_pressed(), "Edited cloth pattern and width profile save")
+	check(editor._save_pressed(), "Edited cubic cloak design saves")
 	editor.craft_btn.pressed.emit()
 	var cloak_slot: int = game.inventory.bag.size() - 1
-	check(game.inventory.equip_from_bag(cloak_slot), "The cloth component is producible and wearable")
+	check(game.inventory.equip_from_bag(cloak_slot), "The cubic cloak is producible and wearable")
 	var cloak: Dictionary = game.inventory.get_slot("equipment", 5)
-	check(cloak.blueprint.voxels[0].cloth.emblem == 3 and is_equal_approx(cloak.blueprint.voxels[0].cloth.wind, 0.7), "Cloth parameters are captured by the crafted item")
+	check(Geometry.dimensions(cloak.blueprint.voxels[0]).is_equal_approx(Vector3.ONE * 0.0325) and cloak.blueprint.voxels.all(Geometry.is_cube), "Crafted cloak captures only unrotated cubes")
 	editor.blueprint.voxels[0].tint = "ffffff"
 	check(game.inventory.get_slot("equipment", 5).blueprint.voxels[0].tint == "3d6873", "Editing after crafting leaves the earlier item unchanged")
 	# Save the later edit so normal close can finish without discarding work.
@@ -80,22 +83,22 @@ func _run() -> void:
 	game._input(action("pause"))
 	check(not editor.visible and not paused, "Second Escape closes a saved design and restores gameplay")
 	var document = game.world.place_document(Vector3i(20, 4, 21), 109)
-	document.restore_data({"blueprints": [armor], "custom_name": "斜肩甲图纸"})
-	check(game.save_progress(), "F5/save API writes the world, custom gear and placed version-two document")
+	document.restore_data({"blueprints": [armor], "custom_name": "方块肩甲图纸"})
+	check(game.save_progress(), "F5/save API writes the world, cubic gear and placed design")
 	var loaded_data: Dictionary = saves.load_game()
-	check(saves.world_validation_error(loaded_data).is_empty(), "World save validation accepts supported shapes and new component fields")
+	check(saves.world_validation_error(loaded_data).is_empty(), "World save validation accepts cubic components")
 	var restored = preload("res://scenes/Main.tscn").instantiate()
 	restored.setup_lifecycle(saves, game.settings_system, loaded_data)
 	root.add_child(restored)
 	for frame in range(30):
 		await physics_frame
 	check(restored.inventory.get_slot("equipment", 1).blueprint == armor, "Loading restores the exact edited shoulder design")
-	check(restored.inventory.get_slot("equipment", 5) == cloak, "Loading restores cloth, tint, pattern, width and anchors")
-	check(restored.player.visual.equipment_visuals.custom_visuals[1] != null and restored.player.visual.equipment_visuals.custom_visuals[5].cloth_materials.size() == 1, "Load rebuilds real rigid and animated cloth models")
+	check(restored.inventory.get_slot("equipment", 5) == cloak, "Loading restores cube edges, colors and anchors")
+	check(restored.player.visual.equipment_visuals.custom_visuals[1] != null and restored.player.visual.equipment_visuals.custom_visuals[5].source_part_count == cloak.blueprint.voxels.size(), "Load rebuilds the actual cubic gear")
 	check(restored.world.documents.size() == 1 and restored.world.documents[0].contents.current.to_dictionary() == armor, "Placed paper restores an editable advanced design")
 	for frame in range(60):
 		restored.player.visual.animate(1.0 / 60.0, 7.8, false, false, false, false, false, true)
-	check(float(restored.player.visual.equipment_visuals.custom_visuals[5].cloth_materials[0].get_shader_parameter("wind_strength")) > 0.5, "Restored custom cloth follows the character's running motion")
+	check(restored.player.visual.equipment_visuals.custom_visuals[5].pieces.all(func(p): return p.basis.is_equal_approx(Basis.IDENTITY)), "Running never tilts or deforms individual cloak cubes")
 	var bad := armor.duplicate(true)
 	bad.voxels[0].dimensions = [0, 1, 1]
 	var before: Array = restored.inventory.bag.duplicate(true)

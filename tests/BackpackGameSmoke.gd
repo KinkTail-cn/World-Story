@@ -36,12 +36,14 @@ func _run() -> void:
 		await process_frame
 		assert(inv.equipment[i] == 101 + i)
 		assert(player.visual.equipment_visuals.pieces[i][0].visible)
+	var cape = player.visual.equipment_visuals.pieces[5][0]
+	var cape_transform: Transform3D = cape.transform
 	for frame in range(20):
 		player.visual.equipment_visuals.update_motion(1.0 / 60.0, 7.8, false, false, false)
-	assert(player.visual.equipment_visuals.cape_wind > 0.75, "Running must increase cape billowing")
+	assert(cape.transform == cape_transform and cape.mesh.get_meta("cube_count", 0) > 1, "Running preserves the base cape's rigid cube assembly")
 	for frame in range(60):
 		player.visual.equipment_visuals.update_motion(1.0 / 60.0, 0, false, false, true)
-	assert(player.visual.equipment_visuals.cape_wind < 0.01, "Sitting must let the cape settle")
+	assert(cape.transform == cape_transform, "Sitting preserves cube shape and orientation relative to the body")
 	panel.tab_crafting.pressed.emit()
 	await process_frame
 	await process_frame
@@ -94,7 +96,7 @@ func _run() -> void:
 			await physics_frame
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png("C:/Users/Qi/AppData/Local/Temp/opencode/world-story-equipment.png")
-	print("BACKPACK_GAME_SMOKE_PASS: modal input, actual mouse drag, seven equipment visuals, crafting click/drag, hotbar sync, finite placement, cape motion, ESC/button close")
+	print("BACKPACK_GAME_SMOKE_PASS: modal input, actual mouse drag, seven equipment visuals, crafting click/drag, hotbar sync, finite placement, rigid cube cape, ESC/button close")
 	quit(0)
 
 func _action(action: String) -> InputEventAction:

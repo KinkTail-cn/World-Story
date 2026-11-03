@@ -11,6 +11,7 @@ const BlueprintEquipment = preload("res://scripts/blueprint/BlueprintEquipment.g
 const BlueprintVisual = preload("res://scripts/player/BlueprintEquipmentVisual.gd")
 const EquipmentSets = preload("res://scripts/content/EquipmentSets.gd")
 const SetVisual = preload("res://scripts/player/EquipmentSetVisual.gd")
+const Cubes = preload("res://scripts/content/CubeParts.gd")
 
 var block_instance: Node3D
 var block_material := ShaderMaterial.new()
@@ -139,9 +140,7 @@ func _build_equipment_visual(id: int) -> void:
 
 func _add_box(parent: Node3D, pos: Vector3, size: Vector3, mat: Material) -> void:
 	var mesh_inst := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = size
-	mesh_inst.mesh = box
+	mesh_inst.mesh = Cubes.mesh(size)
 	mesh_inst.position = pos
 	mesh_inst.material_override = mat
 	parent.add_child(mesh_inst)

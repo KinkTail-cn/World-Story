@@ -1,5 +1,16 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 [ext_resource type="Script" path="res://scripts/ui/BlueprintInspector.gd" id="1"]
+
+[sub_resource type="StyleBoxFlat" id="InspectorBackground"]
+bg_color = Color(0.91, 0.85, 0.72, 1)
+content_margin_left = 6.0
+content_margin_right = 6.0
+content_margin_top = 6.0
+content_margin_bottom = 6.0
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_left = 4
+corner_radius_bottom_right = 4
 
 [node name="BlueprintInspector" type="VBoxContainer"]
 layout_mode = 2
@@ -9,73 +20,49 @@ script = ExtResource("1")
 [node name="SelectionInfo" type="Label" parent="."]
 unique_name_in_owner = true
 layout_mode = 2
-text = "放置属性 · 修改后用于新部件"
+text = "放置属性 · 仅正放立方体"
 autowrap_mode = 2
 [node name="PartName" type="LineEdit" parent="."]
 unique_name_in_owner = true
 layout_mode = 2
-placeholder_text = "选中后可命名部件"
+placeholder_text = "选中后可命名方块"
 
 [node name="Tabs" type="TabContainer" parent="."]
 layout_mode = 2
-[node name="形状" type="VBoxContainer" parent="Tabs"]
+theme_override_styles/panel = SubResource("InspectorBackground")
+[node name="方块" type="VBoxContainer" parent="Tabs"]
 layout_mode = 2
 theme_override_constants/separation = 8
-[node name="Shape" type="OptionButton" parent="Tabs/形状"]
+[node name="Hint" type="Label" parent="Tabs/方块"]
+layout_mode = 2
+text = "用正放立方体拼接造型\n边长统一控制长、宽、高"
+autowrap_mode = 2
+[node name="Anchor" type="OptionButton" parent="Tabs/方块"]
 unique_name_in_owner = true
 layout_mode = 2
-[node name="Anchor" type="OptionButton" parent="Tabs/形状"]
+tooltip_text = "挂点决定方块跟随哪一段身体；更换挂点保持静止人物上的位置。"
+[node name="Surface" type="OptionButton" parent="Tabs/方块"]
 unique_name_in_owner = true
 layout_mode = 2
-tooltip_text = "挂点决定部件跟随哪一段身体；更换挂点保持静止人物上的位置。"
-[node name="Surface" type="OptionButton" parent="Tabs/形状"]
+[node name="EdgeTitle" type="Label" parent="Tabs/方块"]
+layout_mode = 2
+text = "立方体边长（米）"
+[node name="Edge" type="SpinBox" parent="Tabs/方块"]
 unique_name_in_owner = true
 layout_mode = 2
-[node name="DimensionsTitle" type="Label" parent="Tabs/形状"]
-layout_mode = 2
-text = "尺寸 XYZ（米）"
-[node name="Dimensions" type="HBoxContainer" parent="Tabs/形状"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_constants/separation = 4
-[node name="X" type="SpinBox" parent="Tabs/形状/Dimensions"]
-layout_mode = 2
-size_flags_horizontal = 3
 min_value = 0.005
 max_value = 4.0
-step = 0.005
+step = 0.0001
 value = 0.13
-prefix = "X"
-[node name="Y" type="SpinBox" parent="Tabs/形状/Dimensions"]
-layout_mode = 2
-size_flags_horizontal = 3
-min_value = 0.005
-max_value = 4.0
-step = 0.005
-value = 0.13
-prefix = "Y"
-[node name="Z" type="SpinBox" parent="Tabs/形状/Dimensions"]
-layout_mode = 2
-size_flags_horizontal = 3
-min_value = 0.005
-max_value = 4.0
-step = 0.005
-value = 0.13
-prefix = "Z"
-[node name="ColorTitle" type="Label" parent="Tabs/形状"]
+[node name="ColorTitle" type="Label" parent="Tabs/方块"]
 layout_mode = 2
 text = "染色（独立于下方物料）"
-[node name="Tint" type="ColorPickerButton" parent="Tabs/形状"]
+[node name="Tint" type="ColorPickerButton" parent="Tabs/方块"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 32)
 layout_mode = 2
 color = Color(0.825, 0.56, 0.384, 1)
 edit_alpha = false
-[node name="AlignSurface" type="CheckButton" parent="Tabs/形状"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "放置时朝向目标表面"
-tooltip_text = "放置形状的上方向对齐命中面的法线；旋转角度在此基础上应用。"
 
 [node name="变换" type="VBoxContainer" parent="Tabs"]
 layout_mode = 2
@@ -92,118 +79,31 @@ layout_mode = 2
 size_flags_horizontal = 3
 min_value = -64.0
 max_value = 64.0
-step = 0.0325
+step = 0.0001
 prefix = "X"
 [node name="Y" type="SpinBox" parent="Tabs/变换/Position"]
 layout_mode = 2
 size_flags_horizontal = 3
 min_value = -64.0
 max_value = 64.0
-step = 0.0325
+step = 0.0001
 prefix = "Y"
 [node name="Z" type="SpinBox" parent="Tabs/变换/Position"]
 layout_mode = 2
 size_flags_horizontal = 3
 min_value = -64.0
 max_value = 64.0
-step = 0.0325
+step = 0.0001
 prefix = "Z"
-[node name="RotationTitle" type="Label" parent="Tabs/变换"]
-layout_mode = 2
-text = "旋转 XYZ（度，可直接输入）"
-[node name="Rotation" type="HBoxContainer" parent="Tabs/变换"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_constants/separation = 4
-[node name="X" type="SpinBox" parent="Tabs/变换/Rotation"]
-layout_mode = 2
-size_flags_horizontal = 3
-min_value = -360.0
-max_value = 360.0
-step = 15.0
-prefix = "X"
-[node name="Y" type="SpinBox" parent="Tabs/变换/Rotation"]
-layout_mode = 2
-size_flags_horizontal = 3
-min_value = -360.0
-max_value = 360.0
-step = 15.0
-prefix = "Y"
-[node name="Z" type="SpinBox" parent="Tabs/变换/Rotation"]
-layout_mode = 2
-size_flags_horizontal = 3
-min_value = -360.0
-max_value = 360.0
-step = 15.0
-prefix = "Z"
-[node name="AngleStep" type="OptionButton" parent="Tabs/变换"]
-unique_name_in_owner = true
-layout_mode = 2
-[node name="Pivot" type="CheckButton" parent="Tabs/变换"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "单部件绕身体挂点旋转"
-[node name="RotateButtons" type="HBoxContainer" parent="Tabs/变换"]
-layout_mode = 2
-[node name="X" type="Button" parent="Tabs/变换/RotateButtons"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "转 X"
-[node name="Y" type="Button" parent="Tabs/变换/RotateButtons"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "转 Y"
-[node name="Z" type="Button" parent="Tabs/变换/RotateButtons"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "转 Z"
 [node name="Hint" type="Label" parent="Tabs/变换"]
 layout_mode = 2
 text = "方向键：左右/上下移动\nPageUp / PageDown：前后移动\nCtrl+D：复制   Delete：删除"
 theme_override_font_sizes/font_size = 12
 
-[node name="布料" type="VBoxContainer" parent="Tabs"]
-layout_mode = 2
-theme_override_constants/separation = 8
-[node name="Hint" type="Label" parent="Tabs/布料"]
-layout_mode = 2
-text = "选择布料片后，宽度用 X、长度用 Y，\nZ 是核算用料的厚度。顶部保持固定。"
-autowrap_mode = 2
-[node name="Trim" type="ColorPickerButton" parent="Tabs/布料"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 32)
-layout_mode = 2
-text = "饰边色"
-color = Color(0.765, 0.678, 0.475, 1)
-edit_alpha = false
-[node name="Emblem" type="OptionButton" parent="Tabs/布料"]
-unique_name_in_owner = true
-layout_mode = 2
-[node name="WindTitle" type="Label" parent="Tabs/布料"]
-layout_mode = 2
-text = "风力比例"
-[node name="Wind" type="SpinBox" parent="Tabs/布料"]
-unique_name_in_owner = true
-layout_mode = 2
-min_value = 0.0
-max_value = 2.0
-step = 0.1
-value = 1.0
-[node name="FlareTitle" type="Label" parent="Tabs/布料"]
-layout_mode = 2
-text = "下摆比领口增加的宽度（米）"
-[node name="Flare" type="SpinBox" parent="Tabs/布料"]
-unique_name_in_owner = true
-layout_mode = 2
-min_value = -0.4
-max_value = 0.4
-step = 0.01
-value = 0.06
-
 [node name="Apply" type="Button" parent="."]
 unique_name_in_owner = true
 layout_mode = 2
-text = "应用属性到选中部件"
+text = "应用属性到选中方块"
 disabled = true
 [node name="Paint" type="Button" parent="."]
 unique_name_in_owner = true
