@@ -48,6 +48,7 @@ func _build_ui() -> void:
 	_panel = PanelContainer.new()
 	_panel.name = "TooltipCard"
 	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_panel.custom_minimum_size = Vector2(260, 0)
 	add_child(_panel)
 	
 	# 日系深胡桃木与圆角烫金边框主题
@@ -68,7 +69,7 @@ func _build_ui() -> void:
 	var vbox := VBoxContainer.new()
 	vbox.name = "CardLayout"
 	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.custom_minimum_size = Vector2(250, 0)
+	vbox.custom_minimum_size = Vector2(232, 0)
 	vbox.add_theme_constant_override("separation", 8)
 	_panel.add_child(vbox)
 	
@@ -115,6 +116,7 @@ func _build_ui() -> void:
 	_desc_label = Label.new()
 	_desc_label.name = "DescLabel"
 	_desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_desc_label.custom_minimum_size = Vector2(232, 0)
 	_desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_desc_label.add_theme_font_size_override("font_size", 12)
 	_desc_label.add_theme_color_override("font_color", Color("#d8cfc4"))
@@ -133,6 +135,7 @@ func _build_ui() -> void:
 	_tip_label = Label.new()
 	_tip_label.name = "TipLabel"
 	_tip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tip_label.custom_minimum_size = Vector2(232, 0)
 	_tip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_tip_label.add_theme_font_size_override("font_size", 11)
 	_tip_label.add_theme_color_override("font_color", Color("#a69480"))
@@ -223,6 +226,7 @@ func display_item(id: int, mouse_pos: Vector2, custom_info: Dictionary = {}) -> 
 	_tip_label.text = tip_text
 	
 	# 5. 计算初始位置并执行智能避障
+	_panel.reset_size()
 	_update_position(mouse_pos)
 
 ## 隐藏介绍窗口
@@ -236,9 +240,11 @@ func _update_position(mouse_pos: Vector2) -> void:
 		return
 		
 	var vp_size: Vector2 = get_viewport_rect().size
-	var card_size: Vector2 = _panel.size
+	_panel.reset_size()
+	var card_size: Vector2 = _panel.get_combined_minimum_size()
 	if card_size.x <= 0 or card_size.y <= 0:
-		card_size = Vector2(260, 200) # 初始预估保护
+		card_size = Vector2(260, 160)
+	_panel.size = card_size
 		
 	var offset := Vector2(18, 16) # 默认向右下偏置
 	var final_x: float = mouse_pos.x + offset.x
@@ -253,7 +259,7 @@ func _update_position(mouse_pos: Vector2) -> void:
 		final_y = mouse_pos.y - card_size.y - 12
 		
 	# 左与顶边界防溢出兜底
-	final_x = maxf(10.0, final_x)
-	final_y = maxf(10.0, final_y)
+	final_x = clampf(final_x, 10.0, maxf(10.0, vp_size.x - card_size.x - 10.0))
+	final_y = clampf(final_y, 10.0, maxf(10.0, vp_size.y - card_size.y - 10.0))
 	
 	_panel.position = Vector2(final_x, final_y)

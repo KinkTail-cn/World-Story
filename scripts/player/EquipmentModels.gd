@@ -58,7 +58,10 @@ static func _ranger(parts: Array[Dictionary], slot: int, c: Dictionary) -> void:
 			for x in [-0.255, 0.255]:
 				_box(parts, "head", Vector3(x, 0.04, 0.02), Vector3(0.07, 0.38, 0.49), c.main)
 			_box(parts, "head", Vector3(0, 0.175, -0.255), Vector3(0.50, 0.05, 0.055), c.trim)
-			_box(parts, "head", Vector3(-0.25, 0.36, 0.04), Vector3(0.06, 0.24, 0.045), c.gem, Vector3(0.12, 0, -0.35))
+			# 正放阶梯羽饰：优雅斜向后上方延伸的体素翠羽
+			_box(parts, "head", Vector3(-0.27, 0.26, 0.02), Vector3(0.04, 0.08, 0.04), c.gem)
+			_box(parts, "head", Vector3(-0.27, 0.33, 0.05), Vector3(0.04, 0.08, 0.04), c.gem)
+			_box(parts, "head", Vector3(-0.27, 0.39, 0.08), Vector3(0.035, 0.06, 0.035), c.gem)
 		1:
 			_box(parts, "body", Vector3(0, 1.015, 0), Vector3(0.49, 0.63, 0.29), c.main)
 			_box(parts, "body", Vector3(0, 1.04, -0.165), Vector3(0.065, 0.60, 0.035), c.leather, Vector3(0, 0, -0.38))
@@ -99,7 +102,10 @@ static func _knight(parts: Array[Dictionary], slot: int, c: Dictionary) -> void:
 			_box(parts, "head", Vector3(0, 0.245, 0), Vector3(0.53, 0.13, 0.54), c.main)
 			for sign_value in [-1.0, 1.0]:
 				_box(parts, "head", Vector3(sign_value * 0.25, 0.055, 0.03), Vector3(0.07, 0.34, 0.47), c.main)
-				_box(parts, "head", Vector3(sign_value * 0.31, 0.24, 0.02), Vector3(0.07, 0.24, 0.25), c.trim, Vector3(0, 0, -sign_value * 0.55))
+				# 正放阶梯翼饰：威武挺拔向外向上展开的金色飞翼
+				_box(parts, "head", Vector3(sign_value * 0.28, 0.18, 0.02), Vector3(0.05, 0.10, 0.20), c.trim)
+				_box(parts, "head", Vector3(sign_value * 0.31, 0.25, 0.03), Vector3(0.05, 0.10, 0.18), c.trim)
+				_box(parts, "head", Vector3(sign_value * 0.34, 0.32, 0.04), Vector3(0.04, 0.08, 0.14), c.trim)
 				_box(parts, "head", Vector3(sign_value * 0.185, -0.045, -0.25), Vector3(0.11, 0.19, 0.07), c.main)
 			_box(parts, "head", Vector3(0, 0.115, -0.26), Vector3(0.50, 0.06, 0.06), c.trim)
 			_box(parts, "head", Vector3(0, -0.015, -0.265), Vector3(0.04, 0.20, 0.05), c.dark)
@@ -139,13 +145,17 @@ static func _knight(parts: Array[Dictionary], slot: int, c: Dictionary) -> void:
 static func _mage(parts: Array[Dictionary], slot: int, c: Dictionary) -> void:
 	match slot:
 		0:
-			_box(parts, "head", Vector3(0, 0.25, 0), Vector3(0.68, 0.055, 0.61), c.dark)
-			_box(parts, "head", Vector3(0, 0.31, 0), Vector3(0.46, 0.13, 0.44), c.main)
-			for layer in range(6):
-				var width := 0.42 - float(layer) * 0.065
-				_box(parts, "head", Vector3(-0.015, 0.36 + float(layer) * 0.065, 0.015), Vector3(width, 0.065, width), c.main)
-			_box(parts, "head", Vector3(0, 0.315, -0.23), Vector3(0.46, 0.045, 0.035), c.trim)
-			_box(parts, "head", Vector3(0, 0.36, -0.25), Vector3(0.065, 0.12, 0.04), c.gem)
+			# 1. 宽平端正大帽檐（严格居中 X=0, Z=0）
+			_box(parts, "head", Vector3(0, 0.25, 0), Vector3(0.66, 0.045, 0.66), c.dark)
+			# 2. 帽圈底座与金色星辉环带
+			_box(parts, "head", Vector3(0, 0.30, 0), Vector3(0.46, 0.08, 0.46), c.main)
+			_box(parts, "head", Vector3(0, 0.285, 0), Vector3(0.48, 0.04, 0.48), c.trim)
+			_box(parts, "head", Vector3(0, 0.30, -0.25), Vector3(0.08, 0.08, 0.03), c.gem)
+			# 3. 经典优雅体素尖顶（3 级对称黄金收尖阶梯，严格居中，无偏斜歪折）
+			_box(parts, "head", Vector3(0, 0.37, 0), Vector3(0.34, 0.08, 0.34), c.main)
+			_box(parts, "head", Vector3(0, 0.44, 0), Vector3(0.22, 0.08, 0.22), c.main)
+			_box(parts, "head", Vector3(0, 0.505, 0), Vector3(0.12, 0.07, 0.12), c.main)
+			_box(parts, "head", Vector3(0, 0.55, 0), Vector3(0.06, 0.04, 0.06), c.trim)
 		1:
 			_box(parts, "body", Vector3(0, 1.015, 0), Vector3(0.49, 0.67, 0.30), c.main)
 			_box(parts, "body", Vector3(0, 1.04, -0.17), Vector3(0.16, 0.51, 0.04), c.dark)
