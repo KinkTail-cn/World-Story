@@ -40,6 +40,8 @@ func toggle(preferences, label: String) -> void:
 	if DisplayServer.get_name() != "headless":
 		var mode := DisplayServer.window_get_mode()
 		check((mode == DisplayServer.WINDOW_MODE_FULLSCREEN) == enabled, label + ": actual window mode matches")
+		var painted: Rect2 = root.get_final_transform() * root.get_visible_rect()
+		check(painted.position.is_zero_approx() and painted.size.is_equal_approx(Vector2(root.size)), label + ": rendered canvas fills the window without aspect-ratio bars")
 
 func action(name: String) -> InputEventAction:
 	var event := InputEventAction.new()
@@ -50,6 +52,8 @@ func action(name: String) -> InputEventAction:
 func _run() -> void:
 	var original_size := root.size
 	root.size = Vector2i(960, 600)
+	# Existing running windows may still carry the old fixed-aspect policy.
+	root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
 	var boot = preload("res://scenes/Boot.tscn").instantiate()
 	boot.settings_system = Settings.new("user://f11_boot_settings.json")
 	boot.save_system = Saves.new("user://f11_boot_save.json")
@@ -58,6 +62,14 @@ func _run() -> void:
 	await frames()
 	var preferences = boot.settings_system
 	preferences.changed.connect(func(): changes += 1)
+	if DisplayServer.get_name() == "headless":
+		for dimensions in [Vector2i(1920, 1080), Vector2i(2560, 1080)]:
+			root.size = dimensions
+			await frames()
+			var painted: Rect2 = root.get_final_transform() * root.get_visible_rect()
+			check(painted.position.is_zero_approx() and painted.size.is_equal_approx(Vector2(root.size)), "Widescreen canvas has no unused border: " + str(dimensions))
+		root.size = Vector2i(960, 600)
+		await frames()
 	var windowed_size := root.size
 	await toggle(preferences, "Main menu")
 	var before := bool(preferences.get_value("fullscreen"))

@@ -43,6 +43,8 @@ func save() -> bool:
 	return success
 
 func apply(viewport: Viewport, player = null) -> void:
+	if viewport != null and viewport.get_window() != null:
+		viewport.get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
 	_bind_shortcuts(viewport)
 	var master := AudioServer.get_bus_index("Master")
 	if master >= 0:
