@@ -13,6 +13,7 @@ const TERRAIN_SHADER: Shader = preload("res://shaders/terrain.gdshader")
 const GLASS_SHADER: Shader = preload("res://shaders/glass.gdshader")
 const WATER_SHADER: Shader = preload("res://shaders/water.gdshader")
 const Document = preload("res://scripts/world/DocumentItem.gd")
+const GroundCover = preload("res://scripts/world/GroundCover.gd")
 
 # 体素世界基础常量规范
 const CHUNK_SIZE: int = 16
@@ -559,6 +560,11 @@ func _load_or_create_chunk(coord: Vector2i) -> void:
 	var visual: MeshInstance3D = MeshInstance3D.new()
 	visual.material_override = _terrain_material
 	chunk.add_child(visual)
+	var grass := MeshInstance3D.new()
+	grass.name = "GrassBlades"
+	grass.material_override = _terrain_material
+	grass.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	chunk.add_child(grass)
 	var glass := MeshInstance3D.new()
 	glass.name = "Glass"
 	glass.material_override = _glass_material
@@ -580,6 +586,7 @@ func _load_or_create_chunk(coord: Vector2i) -> void:
 		"node": chunk,
 		"visual": visual,
 		"glass": glass,
+		"grass": grass,
 		"collider": collider,
 		"blocks": blocks
 	}
@@ -818,6 +825,8 @@ func _rebuild_chunk_mesh(coord: Vector2i) -> void:
 	var normals: PackedVector3Array = PackedVector3Array()
 	var colors: PackedColorArray = PackedColorArray()
 	var uvs: PackedVector2Array = PackedVector2Array()
+	var wind_uvs := PackedVector2Array()
+	var grass_cells: Array[Vector3i] = []
 	var indices: PackedInt32Array = PackedInt32Array()
 	var glass_vertices := PackedVector3Array()
 	var glass_normals := PackedVector3Array()
@@ -839,6 +848,12 @@ func _rebuild_chunk_mesh(coord: Vector2i) -> void:
 					continue
 					
 				var cell := Vector3i(wx, y, wz)
+				var moving_leaf := id == 4
+				if moving_leaf:
+					for direction in DIRECTIONS:
+						if get_block(cell + direction) == 3:
+							moving_leaf = false
+							break
 				
 				# 针对 6 个相邻面进行遮挡判定：90% 以上邻居在本区块内，直接纳秒级数组寻址
 				for face in range(6):
@@ -878,10 +893,14 @@ func _rebuild_chunk_mesh(coord: Vector2i) -> void:
 					# Glass hides other glass faces, but must not hide opaque neighbors.
 					if neighbor_id != 0 and (neighbor_id != 16 or id == 16):
 						continue
+					if id == 1 and face == 2 and neighbor_id == 0:
+						grass_cells.append(cell)
 						
 					var first: int = glass_vertices.size() if id == 16 else vertices.size()
 					var face_origin: Vector3 = Vector3(cell) + FACE_ORIGINS[face]
 					var tint: Color = Catalog.color(id)
+					if moving_leaf:
+						tint.a = 0.25
 					if id == 1 and face != 2:
 						tint = Catalog.color(2)
 						if face != 3:
@@ -906,6 +925,7 @@ func _rebuild_chunk_mesh(coord: Vector2i) -> void:
 							normals.append(Vector3(DIRECTIONS[face]))
 							colors.append(tint)
 							uvs.append(texture_uv)
+							wind_uvs.append(Vector2(wx + 0.5, wz + 0.5))
 						
 					for corner_index in TRIANGLE_ORDER:
 						if id == 16:
@@ -913,10 +933,15 @@ func _rebuild_chunk_mesh(coord: Vector2i) -> void:
 						else:
 							indices.append(first + corner_index)
 
-	var mesh := _make_chunk_mesh(vertices, normals, colors, uvs, indices)
+	var mesh := _make_chunk_mesh(vertices, normals, colors, uvs, indices, wind_uvs)
 	var glass_mesh := _make_chunk_mesh(glass_vertices, glass_normals, glass_colors, glass_uvs, glass_indices)
 	visual.mesh = mesh
+	if mesh != null:
+		visual.custom_aabb = mesh.get_aabb().grow(0.05)
 	chunk_data.glass.mesh = glass_mesh
+	chunk_data.grass.mesh = GroundCover.build(grass_cells)
+	if chunk_data.grass.mesh != null:
+		chunk_data.grass.custom_aabb = chunk_data.grass.mesh.get_aabb().grow(0.05)
 	var faces := PackedVector3Array()
 	if mesh != null:
 		faces = mesh.get_faces()
@@ -928,7 +953,7 @@ func _rebuild_chunk_mesh(coord: Vector2i) -> void:
 		shape.set_faces(faces)
 	collider.set_deferred("shape", shape)
 
-func _make_chunk_mesh(vertices: PackedVector3Array, normals: PackedVector3Array, colors: PackedColorArray, uvs: PackedVector2Array, indices: PackedInt32Array) -> ArrayMesh:
+func _make_chunk_mesh(vertices: PackedVector3Array, normals: PackedVector3Array, colors: PackedColorArray, uvs: PackedVector2Array, indices: PackedInt32Array, wind_uvs: PackedVector2Array = PackedVector2Array()) -> ArrayMesh:
 	if vertices.is_empty():
 		return null
 	var arrays: Array = []
@@ -938,10 +963,15 @@ func _make_chunk_mesh(vertices: PackedVector3Array, normals: PackedVector3Array,
 	arrays[Mesh.ARRAY_COLOR] = colors
 	arrays[Mesh.ARRAY_TEX_UV] = uvs
 	arrays[Mesh.ARRAY_INDEX] = indices
+	if not wind_uvs.is_empty():
+		arrays[Mesh.ARRAY_TEX_UV2] = wind_uvs
 	
 	var mesh: ArrayMesh = ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return mesh
+
+func set_wind_enabled(enabled: bool) -> void:
+	_terrain_material.set_shader_parameter("wind_enabled", enabled)
 
 
 ## 无限世界视距流式加载与卸载更新

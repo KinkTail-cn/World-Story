@@ -165,7 +165,7 @@ static func from_dictionary(value: Dictionary):
 			"part": str(voxel_dict.get("part", "")),
 			"size": int(voxel_dict.get("size", 1))
 		}
-		for key in ["center", "uid", "label", "shape", "dimensions", "anchor", "offset", "rotation", "tint", "surface", "cloth", "hidden", "locked"]:
+		for key in ["center", "uid", "label", "shape", "dimensions", "anchor", "offset", "rotation", "tint", "surface", "cloth", "hidden", "locked", "motion", "motion_group"]:
 			if voxel_dict.has(key):
 				var field: Variant = voxel_dict[key]
 				entry[key] = field.duplicate(true) if field is Array or field is Dictionary else field
@@ -215,6 +215,10 @@ static func validation_error(value: Dictionary) -> String:
 			return "蓝图形状或表面类型无效"
 		if voxel.has("anchor") and not Geometry.ORIGINS.has(str(voxel.anchor)):
 			return "蓝图身体挂点无效"
+		if voxel.has("motion") and (not voxel.motion is String or voxel.motion not in Materials.MOTIONS):
+			return "部件飘动类型无效"
+		if voxel.has("motion_group") and (not voxel.motion_group is String or voxel.motion_group.length() > 128):
+			return "部件飘动分组无效"
 		for key in ["dimensions", "offset", "rotation"]:
 			if voxel.has(key) and (not voxel[key] is Array or not _vector(voxel[key])):
 				return "蓝图变换参数无效"

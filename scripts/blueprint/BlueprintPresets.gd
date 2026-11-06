@@ -23,6 +23,9 @@ static func design_for_item(id: int) -> Dictionary:
 		var transform := Transform3D(Basis.IDENTITY, Vector3(Geometry.ORIGINS[model.bone]) + pos)
 		var part := {"part": category, "mat": 4 if Sets.style(id) == "ranger" else (6 if Sets.style(id) == "knight" else 5), "size": 1, "shape": "box", "dimensions": Geometry.array(extent), "tint": Color(model.tint).to_html(false), "surface": "leather" if Sets.style(id) == "ranger" else ("metal" if Sets.style(id) == "knight" else "cloth"), "label": _label(category, str(model.bone), index)}
 		Geometry.set_character_transform(part, category, transform, str(model.bone))
+		for key in ["motion", "motion_group"]:
+			if model.has(key):
+				part[key] = model[key]
 		blueprint.add_part(part)
 		index += 1
 	_designs[id] = blueprint.to_dictionary()

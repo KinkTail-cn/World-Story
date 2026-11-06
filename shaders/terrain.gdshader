@@ -3,6 +3,18 @@ render_mode specular_disabled;
 
 uniform sampler2D block_atlas : source_color, filter_nearest;
 uniform vec3 cool_shade : source_color = vec3(0.53, 0.65, 0.78);
+uniform bool wind_enabled = true;
+
+void vertex() {
+	// Wind markers are assigned only to leaves and separate grass blades.
+	// Every vertex of a given cube receives the same phase and translation.
+	if (wind_enabled && COLOR.a < 0.3) {
+		float phase = dot(UV2, vec2(0.63, 0.47));
+		float amplitude = COLOR.a > 0.2 ? 0.028 : COLOR.a * 0.25;
+		float wave = sin(TIME * 1.8 + phase) + sin(TIME * 3.4 + phase * 1.3) * 0.25;
+		VERTEX += vec3(wave, sin(TIME * 1.4 + phase) * 0.12, cos(TIME * 1.6 + phase) * 0.6) * amplitude;
+	}
+}
 
 void fragment() {
 	ivec2 tex_sz = textureSize(block_atlas, 0);

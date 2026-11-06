@@ -114,6 +114,7 @@ static func mesh(extent: Vector3) -> Mesh:
 	var source := surface.commit()
 	var arrays := source.surface_get_arrays(0)
 	var uvs := PackedVector2Array()
+	var horizontal_uvs := PackedVector2Array()
 	var corners_per_cube := int(source.surface_get_array_len(0) / cells.size())
 	# Constant UVs identify a cube's center to the cape animation shader.
 	# Ordinary item materials do not sample these coordinates.
@@ -121,7 +122,9 @@ static func mesh(extent: Vector3) -> Mesh:
 		var uv := Vector2(0.5 + cell.pos.x / extent.x, 0.5 - cell.pos.y / extent.y)
 		for _corner in corners_per_cube:
 			uvs.append(uv)
+			horizontal_uvs.append(Vector2(0.5 + cell.pos.x / extent.x, 0.5 + cell.pos.z / extent.z))
 	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_TEX_UV2] = horizontal_uvs
 	var result := ArrayMesh.new()
 	result.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	result.set_meta("cube_count", cells.size())

@@ -7,6 +7,9 @@ const SURFACES: Array[String] = ["solid", "metal", "leather", "cloth"]
 const SURFACE_NAMES: Array[String] = ["实体", "金属", "皮革", "布料"]
 const SHADER = preload("res://shaders/character.gdshader")
 const CAPE_SHADER = preload("res://shaders/cube_cape.gdshader")
+const SOFT_SHADER = preload("res://shaders/soft_motion.gdshader")
+const MOTIONS: Array[String] = ["fixed", "cloth", "leather", "feather", "paper"]
+const MOTION_NAMES: Array[String] = ["固定", "布料轻摆", "皮革轻摆", "羽饰轻摆", "纸张微动"]
 
 static func tint(part: Dictionary) -> Color:
 	return Color(str(part.tint)) if part.has("tint") else COLORS[clampi(int(part.get("mat", 1)) - 1, 0, 7)]
@@ -17,6 +20,15 @@ static func create_cape(part: Dictionary) -> ShaderMaterial:
 	material.set_shader_parameter("base_color", tint(part))
 	material.set_shader_parameter("surface_roughness", {"solid": 0.8, "metal": 0.42, "leather": 0.88, "cloth": 0.98}.get(str(part.get("surface", "cloth")), 0.98))
 	material.set_shader_parameter("surface_metallic", 0.18 if part.get("surface", "cloth") == "metal" else 0.0)
+	return material
+
+static func create_soft(part: Dictionary, profile: String) -> ShaderMaterial:
+	var material := ShaderMaterial.new()
+	material.shader = SOFT_SHADER
+	material.set_shader_parameter("base_color", tint(part))
+	material.set_shader_parameter("motion_profile", maxi(0, MOTIONS.find(profile) - 1))
+	material.set_shader_parameter("surface_roughness", {"metal": 0.42, "leather": 0.88, "cloth": 0.98}.get(str(part.get("surface", "cloth")), 0.9))
+	material.set_shader_parameter("surface_metallic", 0.18 if part.get("surface") == "metal" else 0.0)
 	return material
 
 static func create(part: Dictionary, ghost: bool = false) -> Material:

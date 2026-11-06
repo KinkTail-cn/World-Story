@@ -612,19 +612,17 @@ func _focus_camera_on_category(category: String, immediate: bool = false) -> voi
 func _toggle_left_drawer() -> void:
 	left_drawer_open = not left_drawer_open
 	left_toggle_btn.text = "◀" if left_drawer_open else "▶"
-	var target_x: float = 18.0 if left_drawer_open else -255.0
+	var target_x: float = 18.0 if left_drawer_open else -250.0 * left_drawer.scale.x + 4.0
 	var tween := create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.tween_property(left_drawer, "offset_left", target_x, 0.28)
-	tween.parallel().tween_property(left_drawer, "offset_right", target_x + 250.0, 0.28)
+	tween.tween_property(left_drawer, "position:x", target_x, 0.28)
 
 
 func _toggle_right_drawer() -> void:
 	right_drawer_open = not right_drawer_open
 	right_toggle_btn.text = "▶" if right_drawer_open else "◀"
-	var target_offset_right: float = -18.0 if right_drawer_open else 270.0
+	var target_x: float = size.x - 18.0 - 282.0 * right_drawer.scale.x if right_drawer_open else size.x - 4.0
 	var tween := create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.tween_property(right_drawer, "offset_right", target_offset_right, 0.28)
-	tween.parallel().tween_property(right_drawer, "offset_left", target_offset_right - 282.0, 0.28)
+	tween.tween_property(right_drawer, "position:x", target_x, 0.28)
 
 
 # -----------------------------------------------------------------------------
@@ -1469,7 +1467,7 @@ func _placement_from_hit(hit: Dictionary) -> Dictionary:
 	var part := Geometry.primitive(current_category, Vector3.ZERO, extent, bone)
 	part["mat"] = selected_material
 	part["size"] = current_voxel_size
-	for key in ["tint", "surface"]:
+	for key in ["tint", "surface", "motion"]:
 		if brush.has(key):
 			part[key] = brush[key].duplicate(true) if brush[key] is Dictionary else brush[key]
 	var basis := Geometry.preview_transform(part, current_category).basis
@@ -1903,10 +1901,30 @@ func _setup_editor() -> void:
 	%Redo.disabled = true
 
 func _layout_editor() -> void:
-	var small := size.x < 1100.0 and size.x > 0.0
-	var top := maxf(230.0, rotate_gizmo.get_rect().end.y + 12.0) if small else 68.0
-	%EditorToolbar.offset_top = top
-	%EditorToolbar.offset_bottom = top + 76.0
+	if not is_node_ready():
+		return
+	var factor := clampf(minf(size.x / 1100.0, size.y / 720.0), 0.7, 1.0)
+	for drawer in [left_drawer, right_drawer]:
+		drawer.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		drawer.scale = Vector2.ONE * factor
+		drawer.size = Vector2(250 if drawer == left_drawer else 282, maxf(510.0, (size.y - 90.0) / factor))
+		drawer.position.y = 68.0
+	left_drawer.position.x = 18.0 if left_drawer_open else -250.0 * factor + 4.0
+	right_drawer.position.x = size.x - 18.0 - 282.0 * factor if right_drawer_open else size.x - 4.0
+	rotate_gizmo.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	rotate_gizmo.scale = Vector2.ONE * factor
+	rotate_gizmo.position = Vector2(size.x - 18.0 - (282.0 + 140.0) * factor, 68.0)
+	var left_edge := 18.0 + 284.0 * factor
+	var right_edge := size.x - 18.0 - 302.0 * factor
+	var top := 68.0 if size.x >= 1100.0 else rotate_gizmo.position.y + rotate_gizmo.size.y * factor + 12.0
+	var tools_right := minf(right_edge, rotate_gizmo.position.x - 12.0) if size.x >= 1100.0 else right_edge
+	%EditorToolbar.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	%EditorToolbar.scale = Vector2.ONE * factor
+	%EditorToolbar.position = Vector2(left_edge, top)
+	%EditorToolbar.size = Vector2(maxf(160.0, (tools_right - left_edge) / factor), 76.0)
+	%EditorHelp.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	%EditorHelp.position = Vector2(left_edge, size.y - 50.0)
+	%EditorHelp.size = Vector2(maxf(160.0, right_edge - left_edge), 42.0)
 
 func _bind_edit_session() -> void:
 	_set_preview_pose(0)
@@ -2088,7 +2106,7 @@ func _set_preview_pose(index: int) -> void:
 		_update_camera_transform()
 	if index == 0 and inspector != null:
 		_selection_changed()
-		status_label.text = "静止建模 · 披风固定，动作预览可查看飘动"
+		status_label.text = "静止建模 · 软材质固定，动作预览可查看飘动"
 
 func _set_inspector_enabled(node: Node, enabled: bool) -> void:
 	if node is BaseButton:

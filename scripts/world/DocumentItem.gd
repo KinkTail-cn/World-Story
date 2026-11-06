@@ -14,6 +14,7 @@ func _ready() -> void:
 	set_meta("document", true)
 	var visual = Models.new()
 	visual.item_id = item_id
+	visual.motion_enabled = true
 	add_child(visual)
 	var collision := CollisionShape3D.new()
 	var box := BoxShape3D.new()

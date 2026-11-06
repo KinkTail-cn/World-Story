@@ -10,6 +10,7 @@ signal design_closed
 
 const Catalog = preload("res://scripts/inventory/ItemCatalog.gd")
 const ItemTooltip = preload("res://scripts/ui/ItemTooltip.gd")
+const Layout = preload("res://scripts/ui/ResponsiveLayout.gd")
 var selected: int = 0
 var toast_time: float = 0.0
 var active_style := StyleBoxFlat.new()
@@ -100,6 +101,30 @@ func _ready() -> void:
 	blueprint_workshop.closed.connect(func(): design_closed.emit())
 	notebook_panel.closed.connect(func(): design_closed.emit())
 	show_message("欢迎来到晴风岛 · 试着敲下一块草地，再建造你的家")
+	$Root.resized.connect(_layout)
+	_layout.call_deferred()
+
+func _layout() -> void:
+	if not is_node_ready():
+		return
+	var available: Vector2 = $Root.size
+	var bottom: Control = $Root/Bottom
+	var factor := minf(1.0, (available.x - 32.0) / 880.0)
+	bottom.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	bottom.size = Vector2(880, 170)
+	bottom.scale = Vector2.ONE * factor
+	bottom.position = Vector2((available.x - 880.0 * factor) * 0.5, available.y - bottom.size.y * factor - 16.0)
+	for panel in [$Root/TopLeftPanel, $Root/TopRightPanel]:
+		var width: float = 352.0 if panel == $Root/TopLeftPanel else 362.0
+		var badge_scale := minf(1.0, (available.x - 56.0) / (352.0 + 362.0))
+		panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		panel.size = Vector2(width, 104)
+		panel.scale = Vector2.ONE * badge_scale
+		panel.position = Vector2(20, 20) if panel == $Root/TopLeftPanel else Vector2(available.x - 20.0 - width * badge_scale, 20)
+	toast.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	toast.size.x = minf(680, available.x - 32.0)
+	toast.position = Vector2((available.x - toast.size.x) * 0.5, 138)
+	Layout.fit_centered($Root/Pause/Panel, available, Vector2(500, 460))
 
 func _process(delta: float) -> void:
 	toast_time = maxf(0.0, toast_time - delta)

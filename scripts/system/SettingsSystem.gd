@@ -12,6 +12,9 @@ const DEFAULTS := {
 
 var values: Dictionary = DEFAULTS.duplicate()
 var settings_path: String = SETTINGS_PATH
+var _windowed_size := Vector2i.ZERO
+var _windowed_position := Vector2i.ZERO
+var _windowed_mode: int = DisplayServer.WINDOW_MODE_WINDOWED
 
 func _init(path: String = SETTINGS_PATH) -> void:
 	settings_path = path
@@ -43,9 +46,21 @@ func apply(viewport: Viewport, player = null) -> void:
 	if master >= 0:
 		AudioServer.set_bus_volume_linear(master, clampf(float(get_value("master_volume")), 0.0, 1.0))
 	if DisplayServer.get_name() != "headless":
-		var desired := DisplayServer.WINDOW_MODE_FULLSCREEN if bool(get_value("fullscreen")) else DisplayServer.WINDOW_MODE_WINDOWED
-		if DisplayServer.window_get_mode() != desired:
-			DisplayServer.window_set_mode(desired)
+		DisplayServer.window_set_min_size(Vector2i(800, 500))
+		var current := DisplayServer.window_get_mode()
+		var is_fullscreen := current in [DisplayServer.WINDOW_MODE_FULLSCREEN, DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN]
+		if bool(get_value("fullscreen")) and not is_fullscreen:
+			_windowed_size = DisplayServer.window_get_size()
+			_windowed_position = DisplayServer.window_get_position()
+			_windowed_mode = current
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+		elif not bool(get_value("fullscreen")) and is_fullscreen:
+			DisplayServer.window_set_mode(_windowed_mode)
+			if _windowed_mode == DisplayServer.WINDOW_MODE_WINDOWED and _windowed_size != Vector2i.ZERO:
+				var usable := DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen())
+				var extent := _windowed_size.min(usable.size).max(Vector2i(800, 500))
+				DisplayServer.window_set_size(extent)
+				DisplayServer.window_set_position(_windowed_position.clamp(usable.position, (usable.end - extent).max(usable.position)))
 	if viewport != null:
 		match int(get_value("msaa")):
 			2: viewport.msaa_3d = Viewport.MSAA_2X

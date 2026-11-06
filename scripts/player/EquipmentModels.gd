@@ -38,11 +38,19 @@ static func parts(id: int) -> Array[Dictionary]:
 		var cloth := {"trim": Color(source.get("trim", Color.WHITE)).to_html(false), "emblem": int(source.get("emblem", 0)), "flare": 0.06}
 		for cell in Cubes.sample(source.size, source.rotation, source.shape, cloth, budgets[index]):
 			cubes.append({"bone": source.bone, "pos": origin + Vector3(cell.pos), "size": Vector3.ONE * float(cell.edge), "tint": Color(str(cell.tint)) if cell.has("tint") else source.tint, "rotation": Vector3.ZERO, "shape": "box"})
+			for field in ["motion", "motion_group"]:
+				if source.has(field):
+					cubes.back()[field] = source[field]
 	_parts[id] = cubes.duplicate(true)
 	return cubes
 
 static func _box(parts: Array[Dictionary], bone: String, pos: Vector3, size: Vector3, tint: Color, rotation: Vector3 = Vector3.ZERO) -> void:
 	parts.append({"bone": bone, "pos": pos, "size": size, "tint": tint, "rotation": rotation, "shape": "box"})
+
+static func _soft_box(parts: Array[Dictionary], bone: String, pos: Vector3, size: Vector3, tint: Color, profile: String, group: String) -> void:
+	_box(parts, bone, pos, size, tint)
+	parts.back()["motion"] = profile
+	parts.back()["motion_group"] = group
 
 static func _cloth(parts: Array[Dictionary], colors: Dictionary, width: float, length: float, emblem: int) -> void:
 	parts.append({"bone": "body", "pos": Vector3(0, 1.30, 0.18), "size": Vector3(width, length, 0.02), "tint": colors.cloth, "trim": colors.trim, "rotation": Vector3.ZERO, "shape": "cloth", "emblem": emblem})
@@ -59,9 +67,9 @@ static func _ranger(parts: Array[Dictionary], slot: int, c: Dictionary) -> void:
 				_box(parts, "head", Vector3(x, 0.04, 0.02), Vector3(0.07, 0.38, 0.49), c.main)
 			_box(parts, "head", Vector3(0, 0.175, -0.255), Vector3(0.50, 0.05, 0.055), c.trim)
 			# 正放阶梯羽饰：优雅斜向后上方延伸的体素翠羽
-			_box(parts, "head", Vector3(-0.27, 0.26, 0.02), Vector3(0.04, 0.08, 0.04), c.gem)
-			_box(parts, "head", Vector3(-0.27, 0.33, 0.05), Vector3(0.04, 0.08, 0.04), c.gem)
-			_box(parts, "head", Vector3(-0.27, 0.39, 0.08), Vector3(0.035, 0.06, 0.035), c.gem)
+			_soft_box(parts, "head", Vector3(-0.27, 0.26, 0.02), Vector3(0.04, 0.08, 0.04), c.gem, "feather", "hood_feather")
+			_soft_box(parts, "head", Vector3(-0.27, 0.33, 0.05), Vector3(0.04, 0.08, 0.04), c.gem, "feather", "hood_feather")
+			_soft_box(parts, "head", Vector3(-0.27, 0.39, 0.08), Vector3(0.035, 0.06, 0.035), c.gem, "feather", "hood_feather")
 		1:
 			_box(parts, "body", Vector3(0, 1.015, 0), Vector3(0.49, 0.63, 0.29), c.main)
 			_box(parts, "body", Vector3(0, 1.04, -0.165), Vector3(0.065, 0.60, 0.035), c.leather, Vector3(0, 0, -0.38))
@@ -93,8 +101,8 @@ static func _ranger(parts: Array[Dictionary], slot: int, c: Dictionary) -> void:
 			_box(parts, "body", Vector3(0, 0.715, 0), Vector3(0.51, 0.105, 0.31), c.leather)
 			_box(parts, "body", Vector3(0, 0.715, -0.17), Vector3(0.10, 0.08, 0.04), c.trim)
 			for x in [-0.19, 0.19]:
-				_box(parts, "body", Vector3(x, 0.68, -0.19), Vector3(0.12, 0.16, 0.09), c.leather)
-				_box(parts, "body", Vector3(x, 0.725, -0.24), Vector3(0.09, 0.04, 0.015), c.dark)
+				_soft_box(parts, "body", Vector3(x, 0.68, -0.19), Vector3(0.12, 0.16, 0.09), c.leather, "leather", "pouch_" + str(x))
+				_soft_box(parts, "body", Vector3(x, 0.725, -0.24), Vector3(0.09, 0.04, 0.015), c.dark, "leather", "pouch_" + str(x))
 
 static func _knight(parts: Array[Dictionary], slot: int, c: Dictionary) -> void:
 	match slot:
@@ -109,7 +117,7 @@ static func _knight(parts: Array[Dictionary], slot: int, c: Dictionary) -> void:
 				_box(parts, "head", Vector3(sign_value * 0.185, -0.045, -0.25), Vector3(0.11, 0.19, 0.07), c.main)
 			_box(parts, "head", Vector3(0, 0.115, -0.26), Vector3(0.50, 0.06, 0.06), c.trim)
 			_box(parts, "head", Vector3(0, -0.015, -0.265), Vector3(0.04, 0.20, 0.05), c.dark)
-			_box(parts, "head", Vector3(0, 0.35, 0.055), Vector3(0.08, 0.24, 0.32), c.cloth)
+			_soft_box(parts, "head", Vector3(0, 0.35, 0.055), Vector3(0.08, 0.24, 0.32), c.cloth, "feather", "helmet_plume")
 		1:
 			_box(parts, "body", Vector3(0, 1.02, 0), Vector3(0.51, 0.65, 0.31), c.main)
 			for x in [-0.12, 0.12]:
@@ -170,8 +178,8 @@ static func _mage(parts: Array[Dictionary], slot: int, c: Dictionary) -> void:
 		2:
 			for side in ["left", "right"]:
 				_box(parts, side + "_leg", Vector3(0, -0.17, 0), Vector3(0.23, 0.348, 0.26), c.dark)
-				_box(parts, side + "_leg", Vector3(0, -0.21, -0.17), Vector3(0.245, 0.42, 0.055), c.main)
-				_box(parts, side + "_leg", Vector3(0, -0.39, -0.205), Vector3(0.25, 0.035, 0.025), c.trim)
+				_soft_box(parts, side + "_leg", Vector3(0, -0.21, -0.17), Vector3(0.245, 0.42, 0.055), c.main, "cloth", "robe_hem")
+				_soft_box(parts, side + "_leg", Vector3(0, -0.39, -0.205), Vector3(0.25, 0.035, 0.025), c.trim, "cloth", "robe_hem")
 				_box(parts, side + "_lower_leg", Vector3(0, -0.075, 0), Vector3(0.23, 0.15, 0.26), c.dark)
 		3:
 			for side in ["left", "right"]:
@@ -188,4 +196,4 @@ static func _mage(parts: Array[Dictionary], slot: int, c: Dictionary) -> void:
 			_box(parts, "body", Vector3(0, 0.72, 0), Vector3(0.52, 0.12, 0.32), c.dark)
 			_box(parts, "body", Vector3(0, 0.72, -0.18), Vector3(0.16, 0.10, 0.04), c.trim)
 			_box(parts, "body", Vector3(0, 0.72, -0.21), Vector3(0.07, 0.07, 0.025), c.gem)
-			_box(parts, "body", Vector3(0.15, 0.60, -0.18), Vector3(0.06, 0.24, 0.035), c.main)
+			_soft_box(parts, "body", Vector3(0.15, 0.60, -0.18), Vector3(0.06, 0.24, 0.035), c.main, "cloth", "belt_ribbon")

@@ -5,6 +5,7 @@ signal closed
 var manager: RefCounted
 var editing_index: int = -1
 const ManagerScript = preload("res://scripts/blueprint/BlueprintManager.gd")
+const Layout = preload("res://scripts/ui/ResponsiveLayout.gd")
 
 @onready var editor: TextEdit = $Card/Body/Editor
 @onready var list: ItemList = $Card/Body/Notes
@@ -18,12 +19,19 @@ func _ready() -> void:
 	$Card/Body/Actions/New.pressed.connect(_new_note)
 	list.item_selected.connect(_select_note)
 	visible = false
+	resized.connect(_layout)
+	_layout.call_deferred()
+
+func _layout() -> void:
+	if is_node_ready():
+		Layout.fit_centered($Card, size, Vector2(960, 640))
 
 func open(value: RefCounted) -> void:
 	manager = value
 	_new_note()
 	_refresh()
 	visible = true
+	_layout()
 
 func close() -> void:
 	visible = false

@@ -186,6 +186,17 @@ func _run() -> void:
 		scene._open_official(412)
 		await frames()
 	check(scene.preview_root.find_children("*", "StaticBody3D", true, false).size() == body_count, "Repeated design/animation changes do not accumulate picking bodies")
+	scene._open_official(401)
+	var feather: Dictionary = scene.blueprint.voxels.filter(func(p): return p.get("motion", "fixed") == "feather")[0]
+	var feather_id: String = feather.uid
+	scene.edit_session.select([feather_id])
+	check(scene.inspector.get_node("%Motion").selected == 3, "Inspector reads an official feather's motion profile")
+	scene.inspector.get_node("%Motion").select(2)
+	scene.inspector.get_node("%Motion").item_selected.emit(2)
+	scene._editor_action("apply")
+	check(scene.blueprint.voxels[scene.blueprint.find_part(feather_id)].motion == "leather", "Visible motion selector applies a soft material behavior")
+	check(scene.edit_session.undo() and scene.blueprint.voxels[scene.blueprint.find_part(feather_id)].motion == "feather", "Undo restores the previous soft behavior")
+	scene._open_official(412)
 	scene.edit_session.select([scene.blueprint.voxels[0].uid])
 	scene.edit_session.translate_selected(Vector3(0, 0.0325, 0))
 	var fail_save := func(_design: Dictionary): scene.set_save_result(false)

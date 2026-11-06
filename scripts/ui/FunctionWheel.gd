@@ -15,6 +15,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
+	resized.connect(func(): center = size * 0.5; queue_redraw())
 
 func open(current_function: int, is_seated: bool) -> void:
 	active_index = clampi(current_function, 0, 1)
@@ -73,6 +74,7 @@ func _draw() -> void:
 		return
 	var viewport_size := size
 	center = viewport_size * 0.5
+	radius = clampf((viewport_size.y - 200.0) * 0.5, 140.0, 180.0)
 	# 半透明深邃暗青背景
 	draw_rect(Rect2(Vector2.ZERO, viewport_size), Color(0.04, 0.09, 0.13, 0.68))
 	
@@ -98,7 +100,7 @@ func _draw() -> void:
 			draw_arc(center, 88.0, start, end, 32, Color("769299", 0.5), 1.2, true)
 			
 		var label_angle := start + (end - start) * 0.5
-		var label_position := center + Vector2(cos(label_angle), sin(label_angle)) * 130.0
+		var label_position := center + Vector2(cos(label_angle), sin(label_angle)) * ((88.0 + radius) * 0.5)
 		var label: String = ("起身" if seated else "坐下") if i == 1 else OPTIONS[i]
 		var font := get_theme_default_font()
 		var label_width := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x

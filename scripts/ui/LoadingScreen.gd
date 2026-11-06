@@ -1,5 +1,7 @@
 extends Control
 
+const Layout = preload("res://scripts/ui/ResponsiveLayout.gd")
+
 # 加载完全完成并淡出后的信号通知
 signal loading_completed
 
@@ -64,7 +66,14 @@ func _ready() -> void:
 		})
 		
 	particles_canvas.draw.connect(_draw_particles)
+	resized.connect(_layout)
+	$Center/Card.minimum_size_changed.connect(_layout.call_deferred)
+	_layout.call_deferred()
 	set_process(true)
+
+func _layout() -> void:
+	if is_node_ready():
+		Layout.fit_centered($Center/Card, size, Vector2(640, 360))
 
 
 func _process(delta: float) -> void:

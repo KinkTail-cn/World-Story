@@ -26,6 +26,9 @@ func _ready() -> void:
 	for title in Materials.SURFACE_NAMES:
 		surface_box.add_item("表面：" + title)
 	surface_box.item_selected.connect(func(_index: int): _notify("surface"))
+	for title in Materials.MOTION_NAMES:
+		%Motion.add_item("飘动：" + title)
+	%Motion.item_selected.connect(func(_index: int): _notify("motion"))
 	anchor_box.item_selected.connect(func(index: int):
 		if not refreshing and has_selection and index > 0 and Geometry.ORIGINS.has(_display_anchor):
 			var new_anchor: String = Geometry.ANCHORS[index - 1]
@@ -69,7 +72,7 @@ func _notify(key: String) -> void:
 
 func properties() -> Dictionary:
 	var edge := float(%Edge.value) if not has_selection or _dirty.has("dimensions") else _base_edge
-	var result := {"shape": "box", "dimensions": Geometry.array(Vector3.ONE * edge), "tint": tint_picker.color.to_html(false), "surface": Materials.SURFACES[maxi(0, surface_box.selected)]}
+	var result := {"shape": "box", "dimensions": Geometry.array(Vector3.ONE * edge), "tint": tint_picker.color.to_html(false), "surface": Materials.SURFACES[maxi(0, surface_box.selected)], "motion": Materials.MOTIONS[maxi(0, %Motion.selected)]}
 	if anchor_box.selected > 0:
 		result["anchor"] = Geometry.ANCHORS[anchor_box.selected - 1]
 	if selection_count == 1:
@@ -98,6 +101,7 @@ func set_values(part: Dictionary, selected_count: int = 0, category: String = "�
 	_display_anchor = bone
 	anchor_box.select(Geometry.ANCHORS.find(bone) + 1)
 	surface_box.select(maxi(0, Materials.SURFACES.find(str(part.get("surface", "solid")))))
+	%Motion.select(maxi(0, Materials.MOTIONS.find(str(part.get("motion", "fixed")))))
 	tint_picker.color = Materials.tint(part)
 	_base_edge = Geometry.dimensions(part).x
 	%Edge.value = _base_edge

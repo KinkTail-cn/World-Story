@@ -1,5 +1,7 @@
 extends Control
 
+const Layout = preload("res://scripts/ui/ResponsiveLayout.gd")
+
 signal close_requested
 
 var settings
@@ -24,6 +26,13 @@ func _ready() -> void:
 	$Center/Card/Body/Buttons/Reset.pressed.connect(_reset)
 	$Center/Card/Body/Header/Close.pressed.connect(func(): close_requested.emit())
 	visible = false
+	resized.connect(_layout)
+	$Center/Card.minimum_size_changed.connect(_layout.call_deferred)
+	_layout.call_deferred()
+
+func _layout() -> void:
+	if is_node_ready():
+		Layout.fit_centered($Center/Card, size, Vector2(540, 0))
 
 func open(value) -> void:
 	settings = value

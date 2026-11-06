@@ -140,7 +140,7 @@ func set_properties(properties: Dictionary) -> bool:
 			Geometry.set_character_transform(part, category, transform, bone)
 			if properties.has("offset"):
 				part["offset"] = properties.offset.duplicate()
-		for key in ["label", "dimensions", "mat", "tint", "surface", "hidden", "locked"]:
+		for key in ["label", "dimensions", "mat", "tint", "surface", "hidden", "locked", "motion"]:
 			if properties.has(key):
 				var value: Variant = properties[key]
 				part[key] = value.duplicate(true) if value is Dictionary or value is Array else value

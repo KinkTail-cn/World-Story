@@ -78,10 +78,11 @@ func _sync_cape_motion() -> void:
 	for piece in pieces[5]:
 		piece.material_override.set_shader_parameter("motion_scale", 1.0 if motion_enabled else 0.0)
 		piece.material_override.set_shader_parameter("wind_strength", cape_wind)
-	for visual in [set_visuals[5], custom_visuals[5]]:
-		if is_instance_valid(visual):
-			visual.set_motion_enabled(motion_enabled)
-			visual.set_wind(cape_wind)
+	for slot in range(7):
+		for visual in [set_visuals[slot], custom_visuals[slot]]:
+			if is_instance_valid(visual):
+				visual.set_motion_enabled(motion_enabled)
+				visual.set_wind(cape_wind)
 
 func _piece(slot: int, parent: Node3D, pos: Vector3, size: Vector3, tint: Color = Color.TRANSPARENT) -> void:
 	var mesh := Cubes.mesh(size)

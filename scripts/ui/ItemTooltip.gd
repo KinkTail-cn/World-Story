@@ -83,6 +83,8 @@ func _build_ui() -> void:
 	_title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_title_label.add_theme_font_size_override("font_size", 16)
 	_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_title_label.clip_text = true
+	_title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	header_hbox.add_child(_title_label)
 	
 	_category_label = Label.new()
@@ -145,7 +147,7 @@ func _process(_delta: float) -> void:
 	if not _is_active or not visible:
 		return
 	var m_pos := get_global_mouse_position()
-	if m_pos.length_squared() > 20.0:
+	if follow_mouse and m_pos.length_squared() > 20.0:
 		_update_position(m_pos)
 
 ## 展示指定物品的信息介绍

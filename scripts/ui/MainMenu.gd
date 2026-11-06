@@ -1,5 +1,7 @@
 extends Control
 
+const Layout = preload("res://scripts/ui/ResponsiveLayout.gd")
+
 signal new_game(mode: String)
 signal continue_game
 signal settings_requested
@@ -30,6 +32,10 @@ func _ready() -> void:
 	$ModePopup/Card/Body/Cancel.pressed.connect(_close_mode_popup)
 	$ModePopup/Card/Body/Start.pressed.connect(_start_selected_mode)
 	mode_popup.visible = false
+	resized.connect(_layout)
+	$Center/Card.minimum_size_changed.connect(_layout.call_deferred)
+	$ModePopup/Card.minimum_size_changed.connect(_layout.call_deferred)
+	_layout.call_deferred()
 	
 	# 初始化漂浮神圣萤火光斑
 	for i in range(24):
@@ -41,6 +47,12 @@ func _ready() -> void:
 			"color": Color("#fce488") if randf() > 0.3 else Color("#9efba4")
 		})
 	set_process(true)
+
+func _layout() -> void:
+	if not is_node_ready():
+		return
+	Layout.fit_centered($Center/Card, size, Vector2(560, 0))
+	Layout.fit_centered($ModePopup/Card, size, Vector2(560, 460))
 
 
 func _process(delta: float) -> void:

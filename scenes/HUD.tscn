@@ -393,6 +393,8 @@ theme_override_constants/separation = 8
 
 [node name="Selected" type="Label" parent="Root/Bottom"]
 layout_mode = 2
+clip_text = true
+text_overrun_behavior = 3
 theme_override_colors/font_color = Color(0.98, 0.95, 0.88, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
 theme_override_constants/shadow_offset_x = 1
@@ -551,6 +553,7 @@ layout_mode = 2
 
 [node name="Help" type="Label" parent="Root/Bottom"]
 layout_mode = 2
+autowrap_mode = 3
 theme_override_colors/font_color = Color(0.92, 0.94, 0.95, 0.85)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
 theme_override_constants/shadow_offset_x = 1

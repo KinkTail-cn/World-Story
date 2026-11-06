@@ -44,6 +44,10 @@ tooltip_text = "挂点决定方块跟随哪一段身体；更换挂点保持静�
 [node name="Surface" type="OptionButton" parent="Tabs/方块"]
 unique_name_in_owner = true
 layout_mode = 2
+[node name="Motion" type="OptionButton" parent="Tabs/方块"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "穿戴和动作预览时生效；静止建模时固定。披风使用独立飘动效果。"
 [node name="EdgeTitle" type="Label" parent="Tabs/方块"]
 layout_mode = 2
 text = "立方体边长（米）"
