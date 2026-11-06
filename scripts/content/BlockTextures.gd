@@ -72,16 +72,16 @@ static func create_block_mesh(sz: Vector3 = Vector3(0.32, 0.32, 0.32)) -> ArrayM
 	var uvs := PackedVector2Array()
 	var indices := PackedInt32Array()
 	
-	# 6 面 UV 定义：
-	# 侧面：U ∈ [0, 1/3]
-	# 顶面：U ∈ [1/3, 2/3]
-	# 底面：U ∈ [2/3, 1.0]
-	var u_side_0: float = 0.0
-	var u_side_1: float = 1.0 / 3.0
-	var u_top_0: float = 1.0 / 3.0
-	var u_top_1: float = 2.0 / 3.0
-	var u_bot_0: float = 2.0 / 3.0
-	var u_bot_1: float = 1.0
+	# Sample texel centers inside each face tile, so its edges never read
+	# the neighboring side/top/bottom tile in the shared texture.
+	var u_side_0: float = 0.5 / 48.0
+	var u_side_1: float = 15.5 / 48.0
+	var u_top_0: float = 16.5 / 48.0
+	var u_top_1: float = 31.5 / 48.0
+	var u_bot_0: float = 32.5 / 48.0
+	var u_bot_1: float = 47.5 / 48.0
+	var v_start: float = 0.5 / 16.0
+	var v_end: float = 15.5 / 16.0
 	
 	var faces := [
 		# +Y (顶面, 第 1 单元: U ∈ [1/3, 2/3])
@@ -109,10 +109,10 @@ static func create_block_mesh(sz: Vector3 = Vector3(0.32, 0.32, 0.32)) -> ArrayM
 		
 		var base_idx: int = vertices.size()
 		# 遵循 Godot 原生顺时针 (CW) 四边形正面定义，完美支持 Backface Culling
-		vertices.append(v0); normals.append(n); uvs.append(Vector2(u0, 0.0))
-		vertices.append(v1); normals.append(n); uvs.append(Vector2(u1, 0.0))
-		vertices.append(v2); normals.append(n); uvs.append(Vector2(u1, 1.0))
-		vertices.append(v3); normals.append(n); uvs.append(Vector2(u0, 1.0))
+		vertices.append(v0); normals.append(n); uvs.append(Vector2(u0, v_start))
+		vertices.append(v1); normals.append(n); uvs.append(Vector2(u1, v_start))
+		vertices.append(v2); normals.append(n); uvs.append(Vector2(u1, v_end))
+		vertices.append(v3); normals.append(n); uvs.append(Vector2(u0, v_end))
 		
 		# 两个三角形顺时针绕序 (0->1->3, 1->2->3)
 		indices.append(base_idx + 0)
@@ -146,6 +146,23 @@ static func _pfill(img: Image, ox: int, x0: int, y0: int, w: int, h: int, c: Col
 		for dx in range(w):
 			_pset(img, ox, x0 + dx, y0 + dy, c)
 
+# Broad ground surfaces use a quiet base with sparse, low-contrast clusters.
+# A local seed avoids the repeated diagonal bands of per-pixel modulo patterns.
+static func _soft_ground_tile(img: Image, ox: int, base: Color, light: Color, dark: Color, seed_value: int, marks: int) -> void:
+	_pfill(img, ox, 0, 0, 16, 16, base)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	for _mark in range(marks):
+		var x := rng.randi_range(0, 15)
+		var y := rng.randi_range(0, 15)
+		var color := light if rng.randf() < 0.5 else dark
+		var width := rng.randi_range(2, 3)
+		var height := rng.randi_range(1, 2)
+		for dy in range(height):
+			for dx in range(width):
+				if (dx == 0 and dy == 0) or rng.randf() < 0.65:
+					_pset(img, ox, posmod(x + dx, 16), posmod(y + dy, 16), color)
+
 ## 核心像素生成算法：输出 48x16 图像
 static func _generate_block_image(id: int) -> Image:
 	var img := Image.create(48, 16, false, Image.FORMAT_RGBA8)
@@ -161,15 +178,8 @@ static func _generate_block_image(id: int) -> Image:
 					if n < 18: _pset(img, 32, x, y, Color("#6c4221"))
 					elif n < 32: _pset(img, 32, x, y, Color("#986337"))
 					
-			# 顶面草坪
-			for y in range(16):
-				for x in range(16):
-					var n: int = int(posmod(x * 47 + y * 89, 100))
-					var gc: Color = Color("#709d5c")
-					if n < 22: gc = Color("#81ad6c")
-					elif n < 42: gc = Color("#668f51")
-					elif n < 55: gc = Color("#5b8049")
-					_pset(img, 16, x, y, gc)
+			# 顶面以柔和草绿为主，仅保留少量成簇的浅深草色。
+			_soft_ground_tile(img, 16, Color("#739a60"), Color("#7a9f67"), Color("#6e955c"), 1107, 12)
 					
 			# 侧面：上部锯齿垂草 + 下部泥土
 			for y in range(16):
@@ -179,14 +189,13 @@ static func _generate_block_image(id: int) -> Image:
 					if n < 18: dc = Color("#6c4221")
 					elif n < 32: dc = Color("#986337")
 					_pset(img, 0, x, y, dc)
-			var grass_depth := [5, 6, 7, 5, 4, 6, 7, 6, 4, 5, 7, 6, 5, 6, 5, 4]
+			var grass_depth := [5, 5, 6, 6, 5, 4, 4, 5, 5, 6, 6, 5, 5, 4, 4, 5]
 			for x in range(16):
 				var d: int = grass_depth[x]
 				for y in range(d):
-					var gc: Color = Color("#709d5c")
-					if y == d - 1: gc = Color("#5b8049")
-					elif y == 0: gc = Color("#81ad6c")
-					elif (x + y) % 3 == 0: gc = Color("#6a9657")
+					var gc: Color = Color("#739a60")
+					if y == d - 1: gc = Color("#6e955c")
+					elif y == 2 and x in [2, 3, 10, 11]: gc = Color("#7a9f67")
 					_pset(img, 0, x, y, gc)
 
 		2: # 泥土
@@ -256,16 +265,7 @@ static func _generate_block_image(id: int) -> Image:
 
 		6: # 沙子
 			for ox in [0, 16, 32]:
-				for y in range(16):
-					for x in range(16):
-						var wave: int = int(posmod(x + y * 2, 8))
-						var c: Color = Color("#c8b58e")
-						if wave == 0: c = Color("#d0bf9d")
-						elif wave == 4: c = Color("#b6a27d")
-						var n: int = int(posmod(x * 71 + y * 31 + ox * 17, 100))
-						if n < 12: c = Color("#d7c8ab")
-						elif n < 22: c = Color("#bda985")
-						_pset(img, ox, x, y, c)
+				_soft_ground_tile(img, ox, Color("#c8b58e"), Color("#cbb993"), Color("#c3b08a"), 6203 + ox, 9)
 
 		7: # 木板
 			for ox in [0, 16, 32]:

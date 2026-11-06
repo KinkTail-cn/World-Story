@@ -115,7 +115,6 @@ func _init_uv_cache() -> void:
 	_block_face_uvs.resize(21 * 6 * 4)
 	_block_face_uvs.fill(Vector2.ZERO)
 	
-	var u_step: float = 1.0 / 3.0
 	var v_step: float = 1.0 / 20.0
 	
 	for id in range(1, 21):
@@ -146,7 +145,9 @@ func _init_uv_cache() -> void:
 					lu = q_uv.x
 					lv = 1.0 - q_uv.y
 					
-				var final_uv: Vector2 = Vector2(u_offset + lu * u_step, v_start + lv * v_step)
+				# Keep the full face inside its tile; exact atlas borders can
+				# sample dirt or a neighboring block as thin seams on the grass.
+				var final_uv := Vector2(u_offset + (0.5 + lu * 15.0) / 48.0, v_start + (0.5 + lv * 15.0) / 320.0)
 				var idx: int = (id * 6 + face) * 4 + corner
 				_block_face_uvs[idx] = final_uv
 

@@ -29,7 +29,7 @@ static func title(id: int) -> String:
 ## 方块基准动漫色彩（严格依照规划基准方案与日系纯净手绘色谱）
 static func color(id: int) -> Color:
 	match id:
-		1: return Color("709d5c") # 柔和的自然草绿
+		1: return Color("739a60") # 柔和、低色差的草坪绿
 		2: return Color("8d5a38") # 肥沃泥土（温润手绘土褐）
 		3: return Color("6d4a2b") # 冷杉原木（深邃日系树皮木纹）
 		4: return Color("59894f") # 自然树冠绿
