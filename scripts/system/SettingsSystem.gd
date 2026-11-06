@@ -3,6 +3,7 @@ extends RefCounted
 signal changed
 
 const SETTINGS_PATH := "user://world_story_settings.json"
+const WindowShortcuts = preload("res://scripts/system/WindowShortcuts.gd")
 const DEFAULTS := {
 	"master_volume": 1.0,
 	"fullscreen": false,
@@ -42,6 +43,7 @@ func save() -> bool:
 	return success
 
 func apply(viewport: Viewport, player = null) -> void:
+	_bind_shortcuts(viewport)
 	var master := AudioServer.get_bus_index("Master")
 	if master >= 0:
 		AudioServer.set_bus_volume_linear(master, clampf(float(get_value("master_volume")), 0.0, 1.0))
@@ -68,6 +70,28 @@ func apply(viewport: Viewport, player = null) -> void:
 			_: viewport.msaa_3d = Viewport.MSAA_DISABLED
 	if player != null and "mouse_sensitivity" in player:
 		player.mouse_sensitivity = float(get_value("sensitivity"))
+
+func _bind_shortcuts(viewport: Viewport) -> void:
+	if viewport == null:
+		return
+	var window := viewport.get_window()
+	if window == null:
+		return
+	var handler: Node = window.get_meta("world_story_window_shortcuts") if window.has_meta("world_story_window_shortcuts") else null
+	if not is_instance_valid(handler):
+		handler = WindowShortcuts.new()
+		handler.name = "WindowShortcuts"
+		window.set_meta("world_story_window_shortcuts", handler)
+		window.add_child.call_deferred(handler)
+	handler.settings = self
+
+func toggle_fullscreen(viewport: Viewport) -> bool:
+	var was_fullscreen := bool(get_value("fullscreen"))
+	if DisplayServer.get_name() != "headless":
+		was_fullscreen = DisplayServer.window_get_mode() in [DisplayServer.WINDOW_MODE_FULLSCREEN, DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN]
+	set_value("fullscreen", not was_fullscreen)
+	apply(viewport)
+	return save()
 
 func set_value(key: String, value) -> void:
 	if not DEFAULTS.has(key):

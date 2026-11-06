@@ -234,7 +234,7 @@ layout_mode = 2
 focus_mode = 0
 theme_override_colors/font_color = Color(0.38, 0.24, 0.12, 1)
 theme_override_font_sizes/font_size = 15
-text = "全屏视界显示"
+text = "全屏视界显示  ·  F11 切换"
 
 [node name="MSAA" type="OptionButton" parent="Center/Card/Body"]
 custom_minimum_size = Vector2(0, 42)

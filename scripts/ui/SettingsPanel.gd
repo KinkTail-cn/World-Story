@@ -35,11 +35,17 @@ func _layout() -> void:
 		Layout.fit_centered($Center/Card, size, Vector2(540, 0))
 
 func open(value) -> void:
+	if settings != null and settings.changed.is_connected(_refresh):
+		settings.changed.disconnect(_refresh)
 	settings = value
+	if settings != null:
+		settings.changed.connect(_refresh)
 	visible = true
 	_refresh()
 
 func close() -> void:
+	if settings != null and settings.changed.is_connected(_refresh):
+		settings.changed.disconnect(_refresh)
 	visible = false
 
 func _refresh() -> void:
