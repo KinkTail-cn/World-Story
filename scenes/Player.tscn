@@ -41,4 +41,4 @@ collision_mask = 1
 current = true
 fov = 70.0
 near = 0.08
-far = 250.0
+far = 1400.0

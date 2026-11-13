@@ -2,6 +2,7 @@ extends Node3D
 
 const INVENTORY = preload("res://scripts/inventory/Inventory.gd")
 const BLUEPRINT_MANAGER = preload("res://scripts/blueprint/BlueprintManager.gd")
+const SkyAtmosphere = preload("res://scripts/world/SkyAtmosphere.gd")
 var inventory
 var game_mode: String = "creative"
 var world_type: String = "island"
@@ -21,6 +22,8 @@ signal regenerate_requested
 var camera_in_water: bool = false
 var surface_fog_color: Color
 var surface_fog_density: float
+var surface_fog_sky_affect: float
+var sky_atmosphere: Node3D
 
 func _ready() -> void:
 	if save_system == null:
@@ -62,8 +65,12 @@ func _ready() -> void:
 	blueprint_manager.load_json()
 	hud.bind_blueprints(blueprint_manager)
 	environment.environment = environment.environment.duplicate()
+	environment.environment.sky = environment.environment.sky.duplicate()
+	environment.environment.sky.sky_material = environment.environment.sky.sky_material.duplicate()
+	environment.environment.sky.sky_material.set_shader_parameter("underwater_mix", 0.0)
 	surface_fog_color = environment.environment.fog_light_color
 	surface_fog_density = environment.environment.fog_density
+	surface_fog_sky_affect = environment.environment.fog_sky_affect
 	hud.resume_requested.connect(_resume)
 	hud.restart_requested.connect(_restart)
 	hud.quit_requested.connect(func(): get_tree().quit())
@@ -144,24 +151,18 @@ func _update_water_environment(_swimming: bool, _submerged: bool, underwater: bo
 	camera_in_water = underwater
 	environment.environment.fog_light_color = Color("438caa") if underwater else surface_fog_color
 	environment.environment.fog_density = 0.055 if underwater else surface_fog_density
+	environment.environment.fog_sky_affect = 1.0 if underwater else surface_fog_sky_affect
+	environment.environment.sky.sky_material.set_shader_parameter("underwater_mix", 1.0 if underwater else 0.0)
+	if is_instance_valid(sky_atmosphere):
+		sky_atmosphere.visible = not underwater
 
 func _create_clouds() -> void:
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.albedo_color = Color("e9f0f2")
-	var positions: Array[Vector3] = [Vector3(-24, 23, -32), Vector3(18, 28, -48), Vector3(50, 24, -21), Vector3(-35, 25, 25), Vector3(47, 27, 50), Vector3(10, 25, 70)]
-	for pos in positions:
-		for i in range(5):
-			var mesh := SphereMesh.new()
-			mesh.radius = 1.0
-			mesh.height = 2.0
-			var cloud := MeshInstance3D.new()
-			cloud.mesh = mesh
-			cloud.material_override = material
-			cloud.position = pos + Vector3(i * 2.8 - 5.6, sin(i * 1.8) * 0.7, cos(i * 2.4))
-			cloud.scale = Vector3(4.4, 1.4 + sin(i * 0.9) * 0.4, 2.7)
-			cloud.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			add_child(cloud)
+	sky_atmosphere = SkyAtmosphere.new()
+	sky_atmosphere.name = "SkyAtmosphere"
+	sky_atmosphere.world_seed = int(loaded_data.get("world", {}).get("world_seed", world.world_seed))
+	sky_atmosphere.sun_direction = $Sun.global_basis.z.normalized()
+	world._water.material_override.set_shader_parameter("sun_direction", sky_atmosphere.sun_direction)
+	add_child(sky_atmosphere)
 
 func _input(event: InputEvent) -> void:
 	if is_loading:
