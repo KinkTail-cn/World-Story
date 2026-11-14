@@ -14,6 +14,7 @@ signal quit_requested
 
 var selected_world_type: String = "infinite"
 var save_system
+var replace_confirmation: ConfirmationDialog
 
 var motes_particles: Array[Dictionary] = []
 var anim_time: float = 0.0
@@ -21,7 +22,7 @@ var anim_time: float = 0.0
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	continue_button.visible = _has_save()
-	mode_box.add_item("创造模式：无限物品，无数量和堆叠限制")
+	mode_box.add_item("创造模式：无限建材，自由建造与蓝图设计")
 	mode_box.add_item("生存模式：有限背包，需要采集和消耗")
 	world_type_box.add_item("真实无限大世界（无限地图 · 广袤大陆与连绵群岛）")
 	world_type_box.add_item("晴风群岛（经典有限地图 · 原版精巧岛屿）")
@@ -93,6 +94,20 @@ func _close_mode_popup() -> void:
 	mode_popup.visible = false
 
 func _start_selected_mode() -> void:
+	if _has_save():
+		if replace_confirmation == null:
+			replace_confirmation = ConfirmationDialog.new()
+			replace_confirmation.title = "创建新世界"
+			replace_confirmation.dialog_text = "当前已有一份世界存档。\n新世界会自动保存，并替换这份世界；上一版保留在备份中。"
+			replace_confirmation.ok_button_text = "创建新世界"
+			replace_confirmation.cancel_button_text = "保留当前世界"
+			replace_confirmation.confirmed.connect(_launch_selected_mode)
+			add_child(replace_confirmation)
+		replace_confirmation.popup_centered()
+		return
+	_launch_selected_mode()
+
+func _launch_selected_mode() -> void:
 	var mode := "survival" if mode_box.selected == 1 else "creative"
 	selected_world_type = "island" if (world_type_box != null and world_type_box.selected == 1) else "infinite"
 	mode_popup.visible = false

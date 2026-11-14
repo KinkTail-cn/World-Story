@@ -7,6 +7,9 @@ signal water_status_changed(swimming: bool, submerged: bool, camera_underwater: 
 signal function_changed(function: int, seated: bool)
 signal document_requested(document: Node3D)
 signal document_mined(document: Node3D)
+signal vitals_changed(health: float, air: float, hurt: bool)
+signal sound_requested(kind: String)
+signal rescued
 
 const Catalog = preload("res://scripts/content/BlockCatalog.gd")
 const HELD_BLOCK = preload("res://scenes/HeldBlock.tscn")
@@ -51,6 +54,12 @@ var _hit_spark_cooldown: float = 0.0
 var _last_feet_y: float = 999.0
 var fp_look_sway: Vector2 = Vector2.ZERO
 var camera_query := PhysicsShapeQueryParameters3D.new()
+var health: float = 100.0
+var air: float = 18.0
+var damage_grace: float = 0.0
+var _damage_age: float = 10.0
+var _fall_speed: float = 0.0
+var _step_time: float = 0.0
 
 @onready var visual = $Visual
 @onready var rig: Node3D = $CameraRig
@@ -146,7 +155,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event.is_action_pressed("sit"):
 		select_function(1)
-	if event.is_action_pressed("interact") and target_document != null:
+	if event.is_action_pressed("interact") and not event.is_echo() and target_document != null:
 		document_requested.emit(target_document)
 	for slot in range(8):
 		if event.is_action_pressed("slot_%d" % (slot + 1)):
@@ -277,6 +286,7 @@ func _update_camera_height() -> void:
 func _physics_process(delta: float) -> void:
 	if world == null or not controls_enabled:
 		return
+	_update_vitals(delta)
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	if interaction_blocked and not Input.is_action_pressed("mine") and not Input.is_action_pressed("place"):
 		interaction_blocked = false
@@ -329,7 +339,14 @@ func _physics_process(delta: float) -> void:
 				velocity.y = 7.0
 		else:
 			velocity.y -= 18.0 * delta
+	_fall_speed = minf(_fall_speed, velocity.y)
 	move_and_slide()
+	if swimming:
+		_fall_speed = 0.0
+	elif is_on_floor():
+		if _fall_speed < -13.5:
+			take_damage((_fall_speed * _fall_speed - 182.25) * 0.13, "落差过大")
+		_fall_speed = 0.0
 	if direction.length_squared() > 0.01:
 		visual.rotation.y = lerp_angle(visual.rotation.y, atan2(-direction.x, -direction.z), minf(delta * 15.0, 1.0))
 	if global_position.y < world.SEA_FLOOR - 5.0:
@@ -415,7 +432,78 @@ func _physics_process(delta: float) -> void:
 		water_splash.update_splash(delta, is_on_water_surface, horizontal_speed, is_fast_moving, move_dir, sea_level, global_position)
 	
 	_update_debris(delta)
+	if horizontal_speed > 1.0 and (is_on_floor() or swimming):
+		_step_time -= delta
+		if _step_time <= 0.0:
+			_step_time = 0.32 if is_sprinting else 0.48
+			sound_requested.emit("water" if swimming else "step")
 	_emit_status()
+
+func _update_vitals(delta: float) -> void:
+	damage_grace = maxf(0.0, damage_grace - delta)
+	_damage_age += delta
+	var creative: bool = inventory == null or inventory.is_creative()
+	if creative:
+		health = 100.0
+		air = 18.0
+	else:
+		var head_under: bool = world.is_water_at(global_position + Vector3(0, 1.45, 0))
+		air = maxf(0.0, air - delta) if head_under else minf(18.0, air + delta * 7.0)
+		if air <= 0.0:
+			take_damage(9.0, "空气耗尽，请上浮")
+		var origin: Vector3 = world.get_spawn_position()
+		var home_distance := Vector2(global_position.x - origin.x, global_position.z - origin.z).length()
+		if home_distance < 8.0 and not head_under and _damage_age > 5.0:
+			health = minf(100.0, health + delta * (9.0 if sitting else 4.0))
+	vitals_changed.emit(health, air, damage_grace > 0.0)
+
+func take_damage(amount: float, reason: String = "受到伤害") -> bool:
+	if amount <= 0.0 or damage_grace > 0.0 or not controls_enabled or (inventory != null and inventory.is_creative()):
+		return false
+	var protection := 0.0
+	if inventory != null:
+		for item in inventory.equipment:
+			if item > 0:
+				protection += 0.045
+	health = maxf(0.0, health - amount * (1.0 - minf(0.32, protection)))
+	damage_grace = 1.0
+	_damage_age = 0.0
+	sound_requested.emit("hurt")
+	message.emit(reason + " · 出生点附近休息可恢复生命")
+	vitals_changed.emit(health, air, true)
+	if health <= 0.0:
+		return_home("生命耗尽，已返回出生点 · 背包物品已保留")
+	return true
+
+func return_home(text: String = "已返回出生点 · 背包物品已保留") -> void:
+	if sitting:
+		_stand_up(true)
+	var origin: Vector3 = world.get_spawn_position()
+	var found := false
+	# Respect old buildings: find actual free standing space above nearby land.
+	for offset in [Vector2i.ZERO, Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1), Vector2i(2, 0)]:
+		for y in range(23, 0, -1):
+			var cell := Vector3i(floori(origin.x) + offset.x, y, floori(origin.z) + offset.y)
+			if world.get_block(cell) == 0 or world.get_block(cell) == 4:
+				continue
+			var candidate := Vector3(cell) + Vector3(0.5, 1.02, 0.5)
+			if _can_occupy(candidate, false):
+				global_position = candidate
+				found = true
+				break
+		if found:
+			break
+	if not found:
+		global_position = origin
+	velocity = Vector3.ZERO
+	health = maxf(65.0, health)
+	air = 18.0
+	damage_grace = 3.0
+	_fall_speed = 0.0
+	interaction_blocked = true
+	rescued.emit()
+	message.emit(text)
+	vitals_changed.emit(health, air, false)
 
 func _emit_status() -> void:
 	var held_id: int = selected_item_id()
@@ -501,6 +589,7 @@ func _mine() -> void:
 		message.emit("已回收：" + doc_title)
 		
 		mined += 1
+		sound_requested.emit("mine")
 		mining_time = 0.0
 		return
 	var cell := target_cell
@@ -515,6 +604,7 @@ func _mine() -> void:
 			if not inventory.add_item(id, 1):
 				message.emit("背包已满，方块没有被拾取")
 		mined += 1
+		sound_requested.emit("mine")
 	else:
 		message.emit("岛屿底层是保护基岩")
 	mining_time = 0.0
@@ -572,6 +662,7 @@ func _place() -> void:
 		if inventory != null:
 			inventory.consume_slot(selected_slot)
 		placed += 1
+		sound_requested.emit("place")
 		visual.rotation.y = rig.rotation.y
 		visual.play_place()
 

@@ -3,6 +3,7 @@ extends Node3D
 const INVENTORY = preload("res://scripts/inventory/Inventory.gd")
 const BLUEPRINT_MANAGER = preload("res://scripts/blueprint/BlueprintManager.gd")
 const SkyAtmosphere = preload("res://scripts/world/SkyAtmosphere.gd")
+const GameAudio = preload("res://scripts/system/GameAudio.gd")
 var inventory
 var game_mode: String = "creative"
 var world_type: String = "island"
@@ -11,6 +12,10 @@ var save_system
 var settings_system
 var loaded_data: Dictionary = {}
 var is_loading: bool = false
+var game_audio: Node
+var game_settings: Control
+var autosave_time: float = 0.0
+var restart_confirmation: ConfirmationDialog
 var editing_document: Node3D
 signal return_to_menu
 signal regenerate_requested
@@ -32,6 +37,7 @@ func _ready() -> void:
 		settings_system = preload("res://scripts/system/SettingsSystem.gd").new()
 	_connect_settings()
 	_apply_settings()
+	get_tree().auto_accept_quit = false
 	if is_instance_valid(world) and "world_type" in world:
 		world.world_type = world_type
 	if is_instance_valid(world) and is_instance_valid(hud):
@@ -54,13 +60,17 @@ func _ready() -> void:
 	player.function_changed.connect(hud.update_function)
 	player.document_requested.connect(_open_document)
 	player.document_mined.connect(_on_document_mined)
+	player.vitals_changed.connect(hud.update_vitals)
+	player.rescued.connect(_on_rescued)
 	hud.function_selected.connect(_choose_function)
 	hud.function_cancelled.connect(_close_function_wheel)
 	hud.inventory_panel.close_requested.connect(_close_inventory)
 	hud.design_closed.connect(_close_design)
 	hud.blueprint_workshop.blueprint_saved.connect(_on_blueprint_saved)
 	hud.blueprint_workshop.item_crafted.connect(func(item: Dictionary): hud.show_message("已制作：" + str(item.custom_name) + " · B 背包中右键穿戴，F5 保存进度"))
+	hud.blueprint_workshop.item_crafted.connect(func(_item: Dictionary): game_audio.play("craft"))
 	inventory.changed.connect(_refresh_inventory)
+	inventory.crafted.connect(func(_id: int, _count: int): game_audio.play("craft"))
 	hud.bind_inventory(inventory)
 	blueprint_manager.load_json()
 	hud.bind_blueprints(blueprint_manager)
@@ -72,14 +82,25 @@ func _ready() -> void:
 	surface_fog_density = environment.environment.fog_density
 	surface_fog_sky_affect = environment.environment.fog_sky_affect
 	hud.resume_requested.connect(_resume)
-	hud.restart_requested.connect(_restart)
-	hud.quit_requested.connect(func(): get_tree().quit())
+	hud.restart_requested.connect(_confirm_restart)
+	hud.quit_requested.connect(_save_and_quit)
+	hud.save_requested.connect(save_progress)
+	hud.menu_requested.connect(_save_and_menu)
+	hud.settings_requested.connect(_open_game_settings)
+	hud.home_requested.connect(func(): _resume(); player.return_home())
 	hud.slot_requested.connect(player.select_slot)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	hud.select_slot(0)
 	hud.update_function(player.active_function, player.sitting)
 	_refresh_inventory()
 	_create_clouds()
+	game_audio = GameAudio.new()
+	game_audio.name = "GameAudio"
+	add_child(game_audio)
+	player.sound_requested.connect(game_audio.play)
+	game_settings = preload("res://scenes/SettingsPanel.tscn").instantiate()
+	hud.get_node("Root").add_child(game_settings)
+	game_settings.close_requested.connect(func(): game_settings.close(); hud.set_paused(true))
 	if not loaded_data.is_empty():
 		save_system.apply_player(player, loaded_data.get("player", {}))
 		world.load_data(loaded_data.get("world", {}), player.global_position)
@@ -129,7 +150,7 @@ func _apply_settings() -> void:
 	if is_inside_tree():
 		settings_system.apply(get_viewport(), player)
 
-func save_progress() -> bool:
+func save_progress(quiet: bool = false) -> bool:
 	if is_loading:
 		hud.show_message("正在准备世界，请加载完成后再保存")
 		return false
@@ -142,8 +163,64 @@ func save_progress() -> bool:
 	if not blueprint_manager.save_json():
 		hud.show_message("世界已保存，但蓝图库与笔记保存失败 · 请检查存储空间后重试 F5")
 		return false
-	hud.show_message("世界进度已保存")
+	if not quiet:
+		hud.show_message("世界进度已保存")
 	return true
+
+func _process(delta: float) -> void:
+	if is_loading or get_tree().paused:
+		return
+	autosave_time += delta
+	if autosave_time >= 120.0:
+		autosave_time = 0.0
+		if save_progress(true):
+			hud.get_node("Root/TopLeftPanel/Margin/TopLeft/Location").text = "自动保存完成 · F5 随时保存"
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_save_and_quit()
+
+func _save_and_quit() -> void:
+	if hud.blueprint_workshop.visible:
+		hud.blueprint_workshop._transition(_commit_exit)
+		return
+	_commit_exit()
+
+func _commit_exit() -> void:
+	if save_progress():
+		get_tree().quit()
+
+func _save_and_menu() -> void:
+	if save_progress():
+		get_tree().paused = false
+		if return_to_menu.has_connections():
+			return_to_menu.emit()
+		else:
+			get_tree().change_scene_to_file("res://scenes/Boot.tscn")
+
+func _on_rescued() -> void:
+	# Returning from a distant infinite chunk must warm the destination before
+	# physics resumes, just like restoring a save at a new location.
+	if world.world_type == "infinite":
+		world.initial_load_position = player.global_position
+		world._request_initial_load()
+
+func _open_game_settings() -> void:
+	hud.set_paused(false)
+	game_settings.open(settings_system)
+
+func _confirm_restart() -> void:
+	if restart_confirmation == null:
+		restart_confirmation = ConfirmationDialog.new()
+		restart_confirmation.title = "重新生成世界"
+		restart_confirmation.dialog_text = "重新生成将开始一个新世界。\n当前世界会先保存；新世界的下一次保存将替换它。"
+		restart_confirmation.ok_button_text = "保存并重新开始"
+		restart_confirmation.cancel_button_text = "保留当前世界"
+		restart_confirmation.confirmed.connect(func():
+			if save_progress():
+				_restart())
+		hud.get_node("Root").add_child(restart_confirmation)
+	restart_confirmation.popup_centered()
 
 func _update_water_environment(_swimming: bool, _submerged: bool, underwater: bool, _depth: float) -> void:
 	if camera_in_water == underwater:
@@ -170,6 +247,12 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("save_game"):
 		save_progress()
 		get_viewport().set_input_as_handled()
+		return
+	if game_settings != null and game_settings.visible:
+		if event.is_action_pressed("pause"):
+			game_settings.close()
+			hud.set_paused(true)
+			get_viewport().set_input_as_handled()
 		return
 	if hud.blueprint_workshop.visible or hud.notebook_panel.visible:
 		if event.is_action_pressed("pause"):

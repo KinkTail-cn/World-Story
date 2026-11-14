@@ -13,6 +13,7 @@ var save_system
 var settings_system
 
 func _ready() -> void:
+	get_tree().auto_accept_quit = false
 	if save_system == null:
 		save_system = SaveSystem.new()
 	if settings_system == null:
@@ -31,6 +32,10 @@ func _ready() -> void:
 	settings = SettingsScene.instantiate()
 	add_child(settings)
 	settings.close_requested.connect(func(): settings.close(); menu.visible = true)
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST and not is_instance_valid(game):
+		get_tree().quit()
 
 func _open_settings() -> void:
 	menu.visible = false

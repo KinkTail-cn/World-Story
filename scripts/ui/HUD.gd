@@ -7,6 +7,10 @@ signal slot_requested(slot: int)
 signal function_selected(index: int)
 signal function_cancelled
 signal design_closed
+signal home_requested
+signal save_requested
+signal menu_requested
+signal settings_requested
 
 const Catalog = preload("res://scripts/inventory/ItemCatalog.gd")
 const ItemTooltip = preload("res://scripts/ui/ItemTooltip.gd")
@@ -22,6 +26,8 @@ var sitting: bool = false
 var inventory: RefCounted
 var blueprints: RefCounted
 var item_tooltip: Control
+var vitals_label: Label
+var hurt_overlay: ColorRect
 
 @onready var slots: HBoxContainer = $Root/Bottom/HotbarDock/Margin/Hotbar if has_node("Root/Bottom/HotbarDock/Margin/Hotbar") else $Root/Bottom/Hotbar
 @onready var target: Label = $Root/Aim/Target
@@ -57,6 +63,7 @@ func _ready() -> void:
 
 	item_tooltip = ItemTooltip.new()
 	$Root.add_child(item_tooltip)
+	_create_sandbox_ui()
 
 	for i in range(8):
 		var button: Button = slots.get_child(i)
@@ -100,7 +107,7 @@ func _ready() -> void:
 	inventory_panel.slot_requested.connect(func(index: int): slot_requested.emit(index))
 	blueprint_workshop.closed.connect(func(): design_closed.emit())
 	notebook_panel.closed.connect(func(): design_closed.emit())
-	show_message("欢迎来到晴风岛 · 试着敲下一块草地，再建造你的家")
+	show_message("自由采集与建造 · B 背包合成 · P 蓝图工坊 · F5 保存")
 	$Root.resized.connect(_layout)
 	_layout.call_deferred()
 
@@ -123,7 +130,9 @@ func _layout() -> void:
 		panel.position = Vector2(20, 20) if panel == $Root/TopLeftPanel else Vector2(available.x - 20.0 - width * badge_scale, 20)
 	toast.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	toast.size.x = minf(680, available.x - 32.0)
-	toast.position = Vector2((available.x - toast.size.x) * 0.5, 138)
+	toast.position = Vector2((available.x - toast.size.x) * 0.5, 162)
+	if vitals_label != null:
+		vitals_label.position = Vector2(available.x - 20.0 - 350.0, 128)
 	Layout.fit_centered($Root/Pause/Panel, available, Vector2(500, 460))
 
 func _process(delta: float) -> void:
@@ -143,6 +152,7 @@ func update_status(text: String, amount: float, first_person: bool, mined: int, 
 	if has_node("Root/TopRight/Mode"):
 		$Root/TopRight/Mode.text = mode_str
 	$Root/TopLeft/Stats.text = "已采集 %d  /  已建造 %d" % [mined, placed]
+	$Root/TopLeftPanel/Margin/TopLeft/Stats.text = "已采集 %d  /  已建造 %d" % [mined, placed]
 
 func update_water_status(in_water: bool, under_surface: bool, camera_underwater: bool, depth: float) -> void:
 	swimming = in_water
@@ -166,7 +176,7 @@ func update_function(index: int, seated: bool) -> void:
 
 
 func _update_help() -> void:
-	var help: String = "WASD 移动  ·  左键 挖掘  ·  右键 放置  ·  B 背包  ·  G 人物功能  ·  F 坐下"
+	var help: String = "WASD 移动  ·  左键 采集  ·  右键 建造  ·  B 背包  ·  G 人物功能  ·  F 坐下"
 	if swimming:
 		help = "WASD 游动  ·  空格 上浮  ·  C / Ctrl 下潜  ·  Shift 加速  ·  G 人物功能"
 	if active_function == 1:
@@ -209,6 +219,9 @@ func refresh_inventory() -> void:
 func show_message(text: String) -> void:
 	toast.text = text
 	toast_time = 4.0
+	if pause_panel.visible:
+		$Root/Pause/Panel/Margin/Content/Description.text = text + "\nF5 保存进度 · 每两分钟自动保存"
+		_layout.call_deferred()
 
 func set_paused(value: bool) -> void:
 	pause_panel.visible = value
@@ -236,6 +249,44 @@ func close_design() -> void:
 
 func any_modal_visible() -> bool:
 	return pause_panel.visible or inventory_panel.visible or function_wheel.visible or blueprint_workshop.visible or notebook_panel.visible
+
+func _create_sandbox_ui() -> void:
+	hurt_overlay = ColorRect.new()
+	hurt_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hurt_overlay.color = Color(0.65, 0.1, 0.08, 0.0)
+	hurt_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	$Root.add_child(hurt_overlay)
+	$Root.move_child(hurt_overlay, 1)
+	vitals_label = Label.new()
+	vitals_label.add_theme_font_size_override("font_size", 14)
+	vitals_label.add_theme_color_override("font_color", Color("fff0cb"))
+	vitals_label.add_theme_color_override("font_shadow_color", Color("1e2931"))
+	vitals_label.add_theme_constant_override("shadow_outline_size", 4)
+	vitals_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	$Root.add_child(vitals_label)
+	$Root.move_child(vitals_label, $Root/FunctionWheel.get_index())
+	var pause_content := $Root/Pause/Panel/Margin/Content
+	for data in [{"title": "保存进度  F5", "action": save_requested}, {"title": "游戏设置", "action": settings_requested}, {"title": "返回出生点", "action": home_requested}, {"title": "保存并返回标题", "action": menu_requested}]:
+		var button: Button = $Root/Pause/Panel/Margin/Content/Resume.duplicate()
+		button.text = data.title
+		button.name = "Action" + str(pause_content.get_child_count())
+		for connection in button.pressed.get_connections():
+			button.pressed.disconnect(connection.callable)
+		var action: Signal = data.action
+		button.pressed.connect(func(): action.emit())
+		pause_content.add_child(button)
+		pause_content.move_child(button, pause_content.get_child_count() - 3)
+	$Root/Pause/Panel/Margin/Content/Title.text = "游戏暂停"
+	$Root/Pause/Panel/Margin/Content/Description.text = "返回出生点保留背包物品 · 出生点附近可恢复生命\n每两分钟自动保存，F5 随时保存。"
+	$Root/Pause/Panel/Margin/Content/Quit.text = "保存并退出游戏"
+	$Root/TopRightPanel/Margin/TopRight/Keys.text = "B 背包   P 蓝图   G 功能   V 视角   F11 全屏"
+
+func update_vitals(health: float, air: float, hurt: bool) -> void:
+	var creative: bool = inventory != null and inventory.is_creative()
+	vitals_label.text = "创造模式 · 自由建造" if creative else "生命 %d / 100" % ceili(health)
+	if not creative and air < 17.5:
+		vitals_label.text += "   空气 %.0f / 18 秒 · 空格上浮" % ceilf(air)
+	hurt_overlay.color.a = 0.1 if hurt and not creative else 0.0
 
 func update_loading(percent: float, message: String = "") -> void:
 	if loading_screen != null and is_instance_valid(loading_screen) and loading_screen.has_method("update_progress"):

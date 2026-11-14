@@ -1,6 +1,7 @@
 extends RefCounted
 
 signal changed
+signal crafted(id: int, count: int)
 
 const ItemCatalog = preload("res://scripts/inventory/ItemCatalog.gd")
 const BlueprintEquipment = preload("res://scripts/blueprint/BlueprintEquipment.gd")
@@ -255,6 +256,7 @@ func take_result(target_index: int = -1) -> bool:
 	if not _add_to_bag(result["id"], result["count"], target):
 		return false
 	changed.emit()
+	crafted.emit(int(result.id), int(result.count))
 	return true
 
 func recipe_text() -> String:

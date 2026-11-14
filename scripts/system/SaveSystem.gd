@@ -126,8 +126,16 @@ func world_validation_error(data: Dictionary) -> String:
 			return "存档的玩家位置或视角无效"
 	if player.has("selected_slot") and (not _integer(player.selected_slot) or player.selected_slot < 0 or player.selected_slot > 7):
 		return "存档的快捷栏位置无效"
+	for key in ["mined", "placed"]:
+		if player.has(key) and (not _integer(player[key]) or player[key] < 0):
+			return "存档的采集或建造计数无效"
 	if player.has("first_person") and not player.first_person is bool:
 		return "存档的视角模式无效"
+	for key in ["health", "air"]:
+		if player.has(key):
+			var value: Variant = player[key]
+			if not (value is int or value is float) or not is_finite(float(value)) or value < 0 or value > (100.0 if key == "health" else 18.0):
+				return "存档的生命或空气无效"
 	if player.has("inventory"):
 		if not player.inventory is Dictionary or not _inventory_valid(player.inventory):
 			return "存档的背包或装备数据无效"
@@ -251,11 +259,21 @@ func save_player(player) -> Dictionary:
 		if node != null:
 			result[part + "_rotation"] = _encode(node.rotation)
 	result["first_person"] = bool(_read_value(player, "first_person", false))
+	result["health"] = float(_read_value(player, "health", 100.0))
+	result["air"] = float(_read_value(player, "air", 18.0))
+	result["mined"] = int(_read_value(player, "mined", 0))
+	result["placed"] = int(_read_value(player, "placed", 0))
 	if inventory != null:
 		result["inventory"] = save_inventory(inventory)
 	return result
 
 func apply_player(player, data: Dictionary) -> void:
+	for key in ["health", "air"]:
+		if data.has(key):
+			_write_value(player, key, float(data[key]))
+	for key in ["mined", "placed"]:
+		if data.has(key):
+			_write_value(player, key, int(data[key]))
 	for key in ["global_position", "rotation"]:
 		var value: Variant = _decode(data.get(key))
 		if value is Vector3 and value.is_finite():

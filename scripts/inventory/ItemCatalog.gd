@@ -316,7 +316,7 @@ static func get_item_info(id: int) -> Dictionary:
 		if EquipmentSets.is_new(id):
 			attrs.append({"icon": "◆", "label": "装备风格", "val": EquipmentSets.TITLES[EquipmentSets.style(id)], "color": Color("#d5b37b")})
 		else:
-			attrs.append({"icon": "✨", "label": "装备效果", "val": "外观装饰", "color": Color("#7ee787")})
+			attrs.append({"icon": "✨", "label": "伤害减免", "val": "每件 4.5%", "color": Color("#7ee787")})
 	elif is_block(id):
 		attrs.append({"icon": "🧱", "label": "方块硬度", "val": "%.2f 秒" % BlockCatalog.mine_time(id), "color": Color("#e3b341")})
 		attrs.append({"icon": "📦", "label": "堆叠上限", "val": "64 个/格", "color": Color("#8b949e")})
@@ -953,5 +953,3 @@ static func _draw_real_weapon(canvas: Control, id: int, origin: Vector2, extent:
 			canvas.draw_polyline(giant_poly, obs_purple, 1.6, true)
 			# 晶核破损紫芒刻纹
 			canvas.draw_line(p_guard + dir * 6.0, p_tip - dir * 10.0, obs_glow, 1.6)
-
-
