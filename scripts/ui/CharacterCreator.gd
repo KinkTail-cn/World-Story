@@ -71,8 +71,17 @@ var _box_selecting: bool = false
 var _box_start := Vector2.ZERO
 var _selection_overlay: Control
 var _bone_bounds: Dictionary = {}
+var _metric_bounds: Dictionary = {}
 var _draft_bound: bool = false
-var _drawn_model: Dictionary = {}
+var _last_model_height: float = 0.0
+var _origins: Dictionary = {}
+var _cubes_by_bone: Dictionary = {}
+var _cube_bones: Dictionary = {}
+var _listed_ids: Dictionary = {}
+var _listed_selection: Dictionary = {}
+var _listed_bone: String = ""
+var _drag_translation: Dictionary = {}
+var _ghost_dirty: bool = true
 var _editing_roots: Array[Control] = []
 var _source_center := Vector3.ZERO
 var _source_edge: float = 0.065
@@ -154,6 +163,7 @@ func _ready() -> void:
 	tool_box.item_selected.connect(func(index: int):
 		tool = index
 		ghost.visible = false
+		_ghost_dirty = true
 		if index == 4:
 			show_bones.button_pressed = true
 			_draw_skeleton())
@@ -330,7 +340,7 @@ func _build_parts_panel(columns: HBoxContainer) -> void:
 	right.add_child(_label("立方体边长（米）", 14))
 	edge_spin = _spin(0.005, 1.0, 0.0005)
 	edge_spin.value = 0.065
-	edge_spin.value_changed.connect(func(_value: float): _edge_dirty = true)
+	edge_spin.value_changed.connect(func(_value: float): _edge_dirty = true; _ghost_dirty = true)
 	right.add_child(edge_spin)
 	var sizes := GridContainer.new()
 	sizes.columns = 2
@@ -445,7 +455,7 @@ func _setup_preview() -> void:
 			_selection_overlay.draw_rect(rect, Color("f8d16c"), false, 1.5))
 	preview.add_child(_selection_overlay)
 	preview.gui_input.connect(_preview_input)
-	preview.mouse_entered.connect(func(): _hover_inside = true)
+	preview.mouse_entered.connect(func(): _hover_inside = true; _ghost_dirty = true)
 	preview.mouse_exited.connect(func(): _hover_inside = false; ghost.visible = false)
 	_update_camera()
 
@@ -482,9 +492,10 @@ func _process(delta: float) -> void:
 	if pose > 0:
 		preview_character.animate(delta, 7.8 if pose == 2 else (4.2 if pose in [1,5] else 0.0), pose == 3, pose == 6, pose == 5, pose == 5, pose == 4, pose == 2)
 	_hover_time -= delta
-	if pose == 0 and tool == 0 and _hover_inside and _hover_time <= 0.0 and _drag_snapshot.is_empty():
+	if pose == 0 and tool == 0 and _hover_inside and _ghost_dirty and _hover_time <= 0.0 and _drag_snapshot.is_empty() and _drag_translation.is_empty():
 		_hover_time = 0.08
 		_update_ghost(_mouse_position)
+		_ghost_dirty = false
 
 func set_pose(index: int) -> void:
 	_flush_parameters()
@@ -510,56 +521,114 @@ func _model_changed() -> void:
 	if not is_instance_valid(preview_character) or edit_session.model.is_empty():
 		return
 	var data: Dictionary = edit_session.model
-	if not _drawn_model.is_empty():
-		var old_height: float = Definition.metrics(_drawn_model).height
-		var new_height: float = Definition.metrics(data).height
-		if absf(new_height / old_height - 1.0) > 0.01:
-			look_center.y *= new_height / old_height
-			orbit_distance = clampf(orbit_distance * new_height / old_height,0.5,10.0)
-			_update_camera()
-	preview_character.apply_character(data)
-	preview_character.held_item.visible = pose == 6
-	preview_character.equipment_visuals.set_motion_enabled(pose > 0)
-	_updating = true
-	name_edit.text = str(data.name)
-	for key in parameter_inputs:
-		parameter_inputs[key].slider.set_value_no_signal(data.parameters[key])
-		parameter_inputs[key].spin.set_value_no_signal(data.parameters[key])
-	_updating = false
-	_drawn_model = data.duplicate(true)
-	_build_bounds()
-	_refresh_cube_list()
-	_refresh_joint()
-	_refresh_socket()
+	var change: Dictionary = edit_session.last_change
+	var full := bool(change.get("full",true))
+	if full:
+		preview_character.apply_character(data)
+		preview_character.held_item.visible = pose == 6
+		preview_character.equipment_visuals.set_motion_enabled(pose > 0)
+		_updating = true
+		name_edit.text = str(data.name)
+		for key in parameter_inputs:
+			parameter_inputs[key].slider.set_value_no_signal(data.parameters[key])
+			parameter_inputs[key].spin.set_value_no_signal(data.parameters[key])
+		_updating = false
+		_origins = Definition.rest_origins(data)
+		_build_bounds()
+		_refresh_joint()
+		_refresh_socket()
+		_draw_skeleton()
+	else:
+		preview_character.update_editor_cubes(data,change.updated,change.removed)
+		for id in change.removed:
+			_remove_pick_cube(str(id))
+		for cube in change.updated:
+			_index_pick_cube(cube)
+		for bone in change.bounds_bones:
+			_build_bone_bounds(str(bone))
+		if not change.bounds_bones.is_empty():
+			_refresh_editor_metrics(data)
+	if full or (bool(change.get("list_changed",false)) and change.bones.has(selected_bone)):
+		_refresh_cube_list(change)
+	var new_height: float = preview_character.body_metrics.height
+	if _last_model_height > 0.0 and absf(new_height/_last_model_height-1.0) > 0.01:
+		look_center.y *= new_height/_last_model_height
+		orbit_distance = clampf(orbit_distance*new_height/_last_model_height,0.5,10.0)
+		_update_camera()
+	_last_model_height = new_height
 	_update_isolation()
-	_draw_skeleton()
-	count_label.text = "%d / %d 方块 · 模型高 %.2f 米" % [data.cubes.size(), Definition.MAX_CUBES, Definition.metrics(data).height]
+	count_label.text = "%d / %d 方块 · 模型高 %.2f 米" % [data.cubes.size(),Definition.MAX_CUBES,new_height]
+	_ghost_dirty = true
+
+func _refresh_editor_metrics(data: Dictionary) -> void:
+	var meta := data.duplicate(false)
+	meta.cubes = []
+	var metrics := Definition.metrics(meta)
+	var height: float = metrics.height
+	var radius: float = metrics.radius
+	for bone in ["body","chest","pelvis","head"]:
+		if _metric_bounds.has(bone):
+			var bounds: AABB = _metric_bounds[bone]
+			height = maxf(height,bounds.end.y)
+			radius = maxf(radius,maxf(maxf(absf(bounds.position.x),absf(bounds.end.x)),maxf(absf(bounds.position.z),absf(bounds.end.z)))+0.05*float(metrics.unit))
+	metrics.seated_height = maxf(radius*2.0,float(metrics.seated_height)+height-float(metrics.height))
+	metrics.height = height
+	metrics.radius = radius
+	preview_character.body_metrics = metrics
 
 func _build_bounds() -> void:
 	_bone_bounds.clear()
-	var origins := Definition.rest_origins(edit_session.model)
+	_metric_bounds.clear()
+	_cubes_by_bone.clear()
+	_cube_bones.clear()
 	for cube in edit_session.model.cubes:
-		if bool(cube.get("hidden", false)):
+		_index_pick_cube(cube)
+	for bone in _cubes_by_bone:
+		_build_bone_bounds(str(bone))
+
+func _remove_pick_cube(id: String) -> void:
+	if _cube_bones.has(id):
+		_cubes_by_bone[_cube_bones[id]].erase(id)
+		_cube_bones.erase(id)
+
+func _index_pick_cube(cube: Dictionary) -> void:
+	var id := str(cube.id)
+	if _cube_bones.has(id) and _cube_bones[id] != cube.bone:
+		_remove_pick_cube(id)
+	if not _cubes_by_bone.has(cube.bone):
+		_cubes_by_bone[cube.bone] = {}
+	_cubes_by_bone[cube.bone][id] = cube
+	_cube_bones[id] = cube.bone
+
+func _build_bone_bounds(bone: String) -> void:
+	_bone_bounds.erase(bone)
+	_metric_bounds.erase(bone)
+	for cube in _cubes_by_bone.get(bone,{}).values():
+		var box := AABB(Vector3(_origins[cube.bone]) + Definition.vector(cube.center) - Vector3.ONE * float(cube.edge) * 0.5, Vector3.ONE * float(cube.edge))
+		_metric_bounds[bone] = box if not _metric_bounds.has(bone) else AABB(_metric_bounds[bone]).merge(box)
+		if bool(cube.get("hidden",false)):
 			continue
-		var box := AABB(Vector3(origins[cube.bone]) + Definition.vector(cube.center) - Vector3.ONE * float(cube.edge) * 0.5, Vector3.ONE * float(cube.edge))
 		_bone_bounds[cube.bone] = box if not _bone_bounds.has(cube.bone) else AABB(_bone_bounds[cube.bone]).merge(box)
 
 func _choose_bone(bone: String) -> void:
+	var same_list := selected_bone == bone and _listed_bone == bone
 	selected_bone = bone
 	bone_box.select(Definition.BONES.find(bone))
 	bone_list.select(Definition.BONES.find(bone))
-	_refresh_cube_list()
+	if not same_list:
+		_refresh_cube_list()
 	_refresh_joint()
 	_update_isolation()
 	_draw_skeleton()
 
-func _refresh_cube_list() -> void:
+func _refresh_cube_list(change: Dictionary = {}) -> void:
+	if not bool(change.get("full",true)) and _listed_bone == selected_bone:
+		_update_list_rows(change)
+		return
 	_updating = true
 	var scroll: float = cube_list.get_v_scroll_bar().value
 	var sources: Array[Dictionary] = []
-	for cube in edit_session.model.get("cubes", []):
-		if cube.bone != selected_bone:
-			continue
+	for cube in _cubes_by_bone.get(selected_bone,{}).values():
 		sources.append(cube)
 	var rebuild := cube_list.item_count != sources.size()
 	if not rebuild:
@@ -569,6 +638,8 @@ func _refresh_cube_list() -> void:
 				break
 	if rebuild:
 		cube_list.clear()
+	_listed_ids.clear()
+	_listed_selection.clear()
 	for index in sources.size():
 		var cube: Dictionary = sources[index]
 		var flags := (" 隐" if cube.get("hidden", false) else "") + (" 锁" if cube.get("locked", false) else "")
@@ -580,16 +651,68 @@ func _refresh_cube_list() -> void:
 			cube_list.set_item_text(index,label)
 		if str(cube.id) in edit_session.selection:
 			cube_list.select(index, false)
+			_listed_selection[str(cube.id)] = true
 		else:
 			cube_list.deselect(index)
+		_listed_ids[str(cube.id)] = index
 	cube_list.get_v_scroll_bar().value = scroll
+	_listed_bone = selected_bone
 	_updating = false
+
+func _update_list_rows(change: Dictionary) -> void:
+	_updating = true
+	var removed_indices: Array[int] = []
+	for id in change.removed:
+		if _listed_ids.has(id):
+			removed_indices.append(int(_listed_ids[id]))
+	for cube in change.updated:
+		if str(cube.bone) != selected_bone and _listed_ids.has(cube.id):
+			removed_indices.append(int(_listed_ids[cube.id]))
+	removed_indices.sort()
+	for position in range(removed_indices.size()-1,-1,-1):
+		var index: int = removed_indices[position]
+		var id := str(cube_list.get_item_metadata(index))
+		_listed_ids.erase(id)
+		_listed_selection.erase(id)
+		cube_list.remove_item(index)
+	if not removed_indices.is_empty():
+		for index in range(removed_indices[0],cube_list.item_count):
+			var id := str(cube_list.get_item_metadata(index))
+			_listed_ids[id] = index
+			var cube: Dictionary = _cubes_by_bone[selected_bone][id]
+			cube_list.set_item_text(index,_cube_label(cube,index))
+	for cube in change.updated:
+		if str(cube.bone) != selected_bone:
+			continue
+		var id := str(cube.id)
+		if _listed_ids.has(id):
+			var index: int = _listed_ids[id]
+			cube_list.set_item_text(index,_cube_label(cube,index))
+		else:
+			var index := cube_list.item_count
+			cube_list.add_item(_cube_label(cube,index))
+			cube_list.set_item_metadata(index,id)
+			_listed_ids[id] = index
+	_updating = false
+
+func _cube_label(cube: Dictionary, index: int) -> String:
+	return "方块 %d%s%s" % [index+1," 隐" if cube.get("hidden",false) else ""," 锁" if cube.get("locked",false) else ""]
 
 func _selection_changed() -> void:
 	if edit_session.model.is_empty():
 		return
-	_refresh_cube_list()
-	var origins := Definition.rest_origins(edit_session.model)
+	_updating = true
+	var next_selection := {}
+	for id in edit_session.selection:
+		if _listed_ids.has(id):
+			next_selection[id] = true
+			if not _listed_selection.has(id):
+				cube_list.select(int(_listed_ids[id]),false)
+	for id in _listed_selection:
+		if not next_selection.has(id) and _listed_ids.has(id):
+			cube_list.deselect(int(_listed_ids[id]))
+	_listed_selection = next_selection
+	_updating = false
 	var multimesh := MultiMesh.new()
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	var box := BoxMesh.new()
@@ -603,7 +726,7 @@ func _selection_changed() -> void:
 	multimesh.instance_count = selected.size()
 	for i in selected.size():
 		var cube: Dictionary = selected[i]
-		var center: Vector3 = origins[cube.bone] + Definition.vector(cube.center)
+		var center: Vector3 = _origins[cube.bone] + Definition.vector(cube.center)
 		var transform := preview_character.global_transform * Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * (float(cube.edge) + 0.003)), center)
 		multimesh.set_instance_transform(i, transform)
 	selection_mesh.multimesh = multimesh
@@ -772,6 +895,10 @@ func cancel_edit() -> bool:
 		unsaved_dialog.hide()
 		_pending_transition = Callable()
 		return true
+	if not _drag_translation.is_empty():
+		edit_session.cancel_translation(_drag_translation)
+		_drag_translation = {}
+		return true
 	if not _drag_snapshot.is_empty():
 		edit_session.restore_snapshot(_drag_snapshot)
 		_drag_snapshot = PackedByteArray()
@@ -791,6 +918,7 @@ func _update_camera() -> void:
 		return
 	var direction := Vector3(sin(orbit_yaw) * cos(orbit_pitch), -sin(orbit_pitch), cos(orbit_yaw) * cos(orbit_pitch))
 	camera.look_at_from_position(look_center + direction * orbit_distance, look_center)
+	_ghost_dirty = true
 
 func focus_selection() -> void:
 	var point: Vector3 = Definition.rest_origins(edit_session.model)[selected_bone]
@@ -879,15 +1007,15 @@ func pick_cube(position: Vector2) -> Dictionary:
 			candidates[bone] = true
 	var result := {}
 	var nearest := INF
-	var origins := Definition.rest_origins(edit_session.model)
-	for cube in edit_session.model.cubes:
-		if not candidates.has(cube.bone) or bool(cube.get("hidden", false)):
-			continue
-		var center: Vector3 = origins[cube.bone] + Definition.vector(cube.center)
-		var hit := _hit_box(ray.origin, ray.direction, AABB(center - Vector3.ONE * float(cube.edge) * 0.5, Vector3.ONE * float(cube.edge)))
-		if not hit.is_empty() and float(hit.distance) < nearest:
-			nearest = float(hit.distance)
-			result = {"cube": cube, "point": Vector3(ray.origin) + Vector3(ray.direction) * nearest, "normal": hit.normal}
+	for bone in candidates:
+		for cube in _cubes_by_bone[bone].values():
+			if bool(cube.get("hidden",false)):
+				continue
+			var center: Vector3 = _origins[bone] + Definition.vector(cube.center)
+			var hit := _hit_box(ray.origin, ray.direction, AABB(center - Vector3.ONE * float(cube.edge) * 0.5, Vector3.ONE * float(cube.edge)))
+			if not hit.is_empty() and float(hit.distance) < nearest:
+				nearest = float(hit.distance)
+				result = {"cube": cube, "point": Vector3(ray.origin) + Vector3(ray.direction) * nearest, "normal": hit.normal}
 	return result
 
 func _placement(position: Vector2) -> Vector3:
@@ -910,6 +1038,7 @@ func _update_ghost(position: Vector2) -> void:
 func _preview_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		_mouse_position = event.position
+		_ghost_dirty = true
 		if _orbiting:
 			orbit_yaw -= event.relative.x * 0.008
 			orbit_pitch = clampf(orbit_pitch - event.relative.y * 0.008, -1.4, 1.4)
@@ -917,12 +1046,12 @@ func _preview_input(event: InputEvent) -> void:
 		elif _panning:
 			look_center += (camera.global_basis.x * -event.relative.x + camera.global_basis.y * event.relative.y) * orbit_distance * 0.0012
 			_update_camera()
-		elif not _drag_snapshot.is_empty() and _drag_joint.is_empty() and event.button_mask & MOUSE_BUTTON_MASK_LEFT:
+		elif not _drag_translation.is_empty() and event.button_mask & MOUSE_BUTTON_MASK_LEFT:
 			var ray := _ray(event.position)
 			var point: Variant = _drag_plane.intersects_ray(ray.origin, ray.direction)
 			if point != null and event.position.distance_to(_drag_start) > 3.0:
 				var delta := (Vector3(point) - _drag_point).snapped(Vector3.ONE * 0.0325)
-				edit_session.preview_translation(_drag_snapshot, delta)
+				edit_session.preview_patch_translation(_drag_translation,delta)
 		elif not _drag_joint.is_empty() and event.button_mask & MOUSE_BUTTON_MASK_LEFT:
 			var ray := _ray(event.position)
 			var point: Variant = _drag_plane.intersects_ray(ray.origin, ray.direction)
@@ -973,7 +1102,7 @@ func _preview_input(event: InputEvent) -> void:
 					edit_session.select([cube.id], event.ctrl_pressed)
 				_choose_bone(str(cube.bone))
 				if not event.ctrl_pressed:
-					_drag_snapshot = edit_session.snapshot()
+					_drag_translation = edit_session.begin_translation()
 					_drag_start = event.position
 					_drag_point = hit.point
 					_drag_plane = Plane((preview_character.global_basis.inverse() * camera.global_basis.z).normalized(), _drag_point)
@@ -1013,10 +1142,10 @@ func _finish_pointer_edit(additive: bool) -> void:
 		_drag_joint = ""
 		_drag_snapshot = PackedByteArray()
 		_feedback(edit_session.move_joint(bone, _drag_joint_position, symmetric.button_pressed, reshape_body.button_pressed))
-	elif not _drag_snapshot.is_empty():
-		var before := _drag_snapshot
-		_drag_snapshot = PackedByteArray()
-		edit_session.record(before)
+	elif not _drag_translation.is_empty():
+		var before := _drag_translation
+		_drag_translation = {}
+		edit_session.commit_translation(before)
 	if _box_selecting:
 		_box_selecting = false
 		var rect := Rect2(_box_start, _mouse_position - _box_start).abs()

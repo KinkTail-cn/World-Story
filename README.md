@@ -164,7 +164,7 @@ Godot 4.7.2 的 3D 体素沙盒。以自由采集、方块拆建、第三人称�
 & .\tests\RunTests.ps1
 ```
 
-`RunTests.ps1` 自动发现并运行 `tests/` 下的 GDScript 测试，当前共 41 套。每套测试使用独立临时用户目录和日志，依据进程退出码、通过标记和脚本错误判断结果，默认单套超时 40 秒。可通过 `-GodotPath "你的Godot路径"` 指定引擎，或通过 `-Suites @('CharacterDefinitionIntegrity', 'CharacterCreatorSmoke', 'CharacterGameplayIntegrity')` 只运行人物创造器专项测试。
+`RunTests.ps1` 自动发现并运行 `tests/` 下的 GDScript 测试，当前共 42 套。每套测试使用独立临时用户目录和日志，依据进程退出码、通过标记和脚本错误判断结果，默认单套超时 40 秒。可通过 `-GodotPath "你的Godot路径"` 指定引擎，或通过 `-Suites @('CharacterDefinitionIntegrity', 'CharacterCreatorSmoke', 'CharacterGameplayIntegrity', 'CharacterEditPerformance')` 只运行人物创造器专项测试。
 
 覆盖范围包括移动拆建、游泳、水花、坐下轮盘、背包鼠标拖动、方块/工具/武器、蓝图几何、纸笔、菜单、设置和存档。`BlueprintCraftSmoke.gd` 额外覆盖用料折算、失败事务、设计快照、蓝图库选择、实际制作按钮、装备替换、快捷栏模型、七部位挂接和 JSON 读档后的穿戴模型恢复。`LifecycleIntegrity` 与 `SaveRecoveryIntegrity` 各主动制造一次备份写入失败，以验证旧内容保护，因此其引擎日志各包含一条预期文件错误。
 
@@ -194,6 +194,8 @@ Godot 4.7.2 的 3D 体素沙盒。以自由采集、方块拆建、第三人称�
 
 `CharacterDefinitionIntegrity.gd` 验证体型生成、刚性关节、立方体约束、挂接、模型历史、人物库及装备快照。`CharacterCreatorSmoke.gd` 通过真实按键、关节拖动、预览点击、染色、保存/应用按钮和读档串起完整流程，另覆盖新人物的蓝图编辑制作、缩放界面、F11 和失败保护；窗口模式追加 `-- --capture` 输出画面。`CharacterGameplayIntegrity.gd` 在真实世界里验证高矮人物的空间检查、坐下起身、眼位、潜水、返回、移动、跳跃和采集。
 
+`CharacterEditPerformance.gd` 验证连续点击、局部渲染、差量历史、拖动提交/取消、隐藏、改挂点、批量撤销、容量扩展和 16000 块压力模型。实际窗口读取实例缓冲的变换和颜色，并输出操作耗时。人物创造器普通编辑只更新变化的实例、列表和拾取缓存，骨架整体变化时更新完整预览。
+
 无窗口测试验证逻辑；实际界面和渲染需启动窗口验收。`BlueprintCraftSmoke.gd` 在窗口模式追加 `-- --capture` 可将工坊和已穿戴装备截图写入本机 `C:/Users/Qi/AppData/Local/Temp/opencode/`。
 
 ## 结构
@@ -208,6 +210,7 @@ Godot 4.7.2 的 3D 体素沙盒。以自由采集、方块拆建、第三人称�
 | `scripts/player/Player.gd` | 移动、相机、目标射线与拆建 |
 | `scripts/player/CharacterVisual.gd` | 原型角色和动作 |
 | `scripts/character/CharacterDefinition.gd` / `CharacterBodyMesh.gd` | 人物定义、骨架、体型重塑、功能点、尺寸和合并方块网格 |
+| `scripts/character/CharacterEditMesh.gd` | 创造器按关节复用实例缓冲，局部更新方块显示 |
 | `scripts/character/CharacterEditSession.gd` / `CharacterLibrary.gd` | 人物编辑事务、64 步历史与模型库保存 |
 | `scripts/ui/CharacterCreator.gd` | K 人物创造器、骨架拖动、方块建模、预览与应用 |
 | `scripts/player/ToolSwing.gd` | 镐、斧、锹的双视角动作阶段、轨迹与周期 |

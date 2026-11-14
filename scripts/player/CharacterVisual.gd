@@ -8,6 +8,7 @@ const ToolSwing = preload("res://scripts/player/ToolSwing.gd")
 const WeaponSwing = preload("res://scripts/player/WeaponSwing.gd")
 const CharacterDefinition = preload("res://scripts/character/CharacterDefinition.gd")
 const CharacterBodyMesh = preload("res://scripts/character/CharacterBodyMesh.gd")
+const CharacterEditMesh = preload("res://scripts/character/CharacterEditMesh.gd")
 const PALM_POSITION := Vector3(0, -0.225, 0)
 const BLOCK_HOLD_POSITION := Vector3(0.12, -0.225, -0.18)
 
@@ -38,8 +39,9 @@ var character_definition: Dictionary = {}
 var rig_nodes: Dictionary = {}
 var body_metrics: Dictionary = CharacterDefinition.metrics()
 var _base_pieces: Array[MeshInstance3D] = []
-var _model_pieces: Array[MeshInstance3D] = []
+var _model_pieces: Array[GeometryInstance3D] = []
 var editor_mode: bool = false
+var _edit_mesh
 
 func _ready() -> void:
 	var skin := _material("f5d3b0")
@@ -161,11 +163,19 @@ func apply_character(data: Dictionary) -> bool:
 	_reset_rig(data)
 	for piece in _base_pieces:
 		piece.visible = data.is_empty()
+	if _edit_mesh != null:
+		_edit_mesh.clear()
+		_edit_mesh = null
+		_model_pieces.clear()
 	for piece in _model_pieces:
 		piece.get_parent().remove_child(piece)
 		piece.queue_free()
 	_model_pieces.clear()
-	if not data.is_empty():
+	if not data.is_empty() and editor_mode:
+		_edit_mesh = CharacterEditMesh.new()
+		_edit_mesh.build(data,rig_nodes)
+		_model_pieces = _edit_mesh.pieces
+	elif not data.is_empty():
 		var meshes := CharacterBodyMesh.build(data, editor_mode)
 		var material := CharacterBodyMesh.material()
 		for bone in meshes:
@@ -187,6 +197,16 @@ func apply_character(data: Dictionary) -> bool:
 		equipment_visuals.set_motion_enabled(motion_enabled)
 	set_held_block(held_item.block_id)
 	return true
+
+## The edit session validates each transaction. Update only its changed
+## instances; committed player models still use the independent full build.
+func update_editor_cubes(data: Dictionary, updated: Array, removed: Array) -> void:
+	if not editor_mode or _edit_mesh == null:
+		apply_character(data)
+		return
+	character_definition = data.duplicate(false)
+	_edit_mesh.update(updated,removed)
+	_model_pieces = _edit_mesh.pieces
 
 func rest_origin(bone: String) -> Vector3:
 	return CharacterDefinition.rest_origins(character_definition).get(bone, Vector3.ZERO)

@@ -326,18 +326,26 @@ static func validation_error(data: Dictionary) -> String:
 		return "人物需要 1 至 16384 个立方体"
 	var ids := {}
 	for cube in data.cubes:
-		if not cube is Dictionary or not cube.get("id") is String or cube.id.is_empty() or cube.id.length() > 160 or ids.has(cube.id) or cube.get("bone") not in BONES:
-			return "方块标识或附着关节无效"
+		var cube_error := cube_validation_error(cube)
+		if not cube_error.is_empty():
+			return cube_error
+		if ids.has(cube.id):
+			return "方块标识重复"
 		ids[cube.id] = true
-		if not _vector(cube.get("center")) or vector(cube.center).length() > 4.0 or not _number(cube.get("edge")) or cube.edge < 0.005 or cube.edge > 1.0:
-			return "方块位置或边长无效"
-		if cube.has("rotation") or cube.has("scale") or cube.has("dimensions"):
-			return "人物方块只能调整统一边长，不能单独旋转或拉伸"
-		if not cube.get("color") is String or not Color.html_is_valid(cube.color):
-			return "方块颜色无效"
-		for flag in ["hidden", "locked"]:
-			if cube.has(flag) and not cube[flag] is bool:
-				return "方块编辑状态无效"
+	return ""
+
+static func cube_validation_error(cube: Variant) -> String:
+	if not cube is Dictionary or not cube.get("id") is String or cube.id.is_empty() or cube.id.length() > 160 or cube.get("bone") not in BONES:
+		return "方块标识或附着关节无效"
+	if not _vector(cube.get("center")) or vector(cube.center).length() > 4.0 or not _number(cube.get("edge")) or cube.edge < 0.005 or cube.edge > 1.0:
+		return "方块位置或边长无效"
+	if cube.has("rotation") or cube.has("scale") or cube.has("dimensions"):
+		return "人物方块只能调整统一边长，不能单独旋转或拉伸"
+	if not cube.get("color") is String or not Color.html_is_valid(cube.color):
+		return "方块颜色无效"
+	for flag in ["hidden", "locked"]:
+		if cube.has(flag) and not cube[flag] is bool:
+			return "方块编辑状态无效"
 	return ""
 
 static func playable_error(data: Dictionary) -> String:
