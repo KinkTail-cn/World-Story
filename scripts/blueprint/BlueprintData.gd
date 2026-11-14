@@ -16,6 +16,7 @@ var voxels: Array[Dictionary] = []
 var created_at: String = ""
 var schema_version: int = SCHEMA_VERSION
 var source_item_id: int = 0
+var rig_reference: Dictionary = {}
 var _next_id: int = 1
 
 const VOXEL_SIZE: float = 0.13
@@ -128,7 +129,10 @@ func to_dictionary() -> Dictionary:
 		var position := Geometry.vector(voxel.get("pos"))
 		item["pos"] = [int(position.x), int(position.y), int(position.z)]
 		voxel_data.append(item)
-	return {"schema_version": schema_version, "source_item_id": source_item_id, "name": name, "category": category, "grid_size": grid_size, "cells": cells.duplicate(), "voxels": voxel_data, "created_at": created_at}
+	var result := {"schema_version": schema_version, "source_item_id": source_item_id, "name": name, "category": category, "grid_size": grid_size, "cells": cells.duplicate(), "voxels": voxel_data, "created_at": created_at}
+	if not rig_reference.is_empty():
+		result["rig_reference"] = rig_reference.duplicate(true)
+	return result
 
 static func _serialized(value: Variant) -> Variant:
 	if value is Dictionary:
@@ -152,6 +156,7 @@ static func from_dictionary(value: Dictionary):
 	var result = script.new(str(value.get("name", "未命名蓝图")), str(value.get("category", "道具摆件")), int(value.get("grid_size", 8)))
 	result.created_at = str(value.get("created_at", ""))
 	result.source_item_id = int(value.get("source_item_id", 0))
+	result.rig_reference = value.get("rig_reference", {}).duplicate(true)
 	var source: Array = value.get("cells", [])
 	result.cells.clear()
 	for index in range(result.grid_size * result.grid_size):
@@ -180,6 +185,12 @@ static func from_dictionary(value: Dictionary):
 	return result
 
 static func validation_error(value: Dictionary) -> String:
+	if value.has("rig_reference"):
+		if not value.rig_reference is Dictionary:
+			return "蓝图参考体型格式无效"
+		var error := Geometry.CharacterDefinition.reference_error(value.rig_reference)
+		if not error.is_empty():
+			return "蓝图参考体型无效：" + error
 	for key in ["name", "category", "created_at"]:
 		if value.has(key) and not value[key] is String:
 			return "蓝图名称或类别格式无效"

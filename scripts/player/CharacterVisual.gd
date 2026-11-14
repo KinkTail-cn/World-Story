@@ -6,6 +6,8 @@ const EQUIPMENT_VISUALS = preload("res://scripts/player/EquipmentVisuals.gd")
 const ItemCatalog = preload("res://scripts/inventory/ItemCatalog.gd")
 const ToolSwing = preload("res://scripts/player/ToolSwing.gd")
 const WeaponSwing = preload("res://scripts/player/WeaponSwing.gd")
+const CharacterDefinition = preload("res://scripts/character/CharacterDefinition.gd")
+const CharacterBodyMesh = preload("res://scripts/character/CharacterBodyMesh.gd")
 const PALM_POSITION := Vector3(0, -0.225, 0)
 const BLOCK_HOLD_POSITION := Vector3(0.12, -0.225, -0.18)
 
@@ -32,6 +34,12 @@ var sprint_blend: float = 0.0
 var swing_cycle_running: bool = false
 var swing_cycle_time: float = 0.0
 var swing_contact: bool = false
+var character_definition: Dictionary = {}
+var rig_nodes: Dictionary = {}
+var body_metrics: Dictionary = CharacterDefinition.metrics()
+var _base_pieces: Array[MeshInstance3D] = []
+var _model_pieces: Array[MeshInstance3D] = []
+var editor_mode: bool = false
 
 func _ready() -> void:
 	var skin := _material("f5d3b0")
@@ -110,20 +118,95 @@ func _ready() -> void:
 	_box(right_lower_leg, Vector3(0, -0.0775, 0), Vector3(0.215, 0.155, 0.225), pants)
 	_box(right_lower_leg, Vector3(0, -0.245, 0), Vector3(0.217, 0.18, 0.255), leather)
 	
+	_initialize_rig()
 	held_item = HELD_BLOCK.instantiate()
 	held_item.position = BLOCK_HOLD_POSITION
 	right_forearm.add_child(held_item)
 	equipment_visuals = EQUIPMENT_VISUALS.new()
 	add_child(equipment_visuals)
+	if not character_definition.is_empty():
+		apply_character(character_definition)
+
+func _initialize_rig() -> void:
+	rig_nodes = {"body": body, "head": head, "left_arm": left_arm, "right_arm": right_arm, "left_forearm": left_forearm, "right_forearm": right_forearm, "left_leg": left_leg, "right_leg": right_leg, "left_lower_leg": left_lower_leg, "right_lower_leg": right_lower_leg}
+	for bone in CharacterDefinition.BONES:
+		if not rig_nodes.has(bone):
+			rig_nodes[bone] = Node3D.new()
+			add_child(rig_nodes[bone])
+	for bone in CharacterDefinition.BONES:
+		var node: Node3D = rig_nodes[bone]
+		node.name = bone
+		var parent: Node3D = self if bone == "body" else rig_nodes[CharacterDefinition.PARENTS[bone]]
+		if node.get_parent() != parent:
+			node.reparent(parent, false)
+	_reset_rig({})
+
+func _reset_rig(data: Dictionary) -> void:
+	var origins := CharacterDefinition.rest_origins(data)
+	for bone in CharacterDefinition.BONES:
+		var node: Node3D = rig_nodes[bone]
+		node.rotation = Vector3.ZERO
+		node.scale = Vector3.ONE
+		node.position = origins[bone] if bone == "body" else Vector3(origins[bone]) - Vector3(origins[CharacterDefinition.PARENTS[bone]])
+
+func apply_character(data: Dictionary) -> bool:
+	if not data.is_empty() and not CharacterDefinition.validation_error(data).is_empty():
+		return false
+	var rig_changed := CharacterDefinition.rig_reference(character_definition) != CharacterDefinition.rig_reference(data)
+	character_definition = CharacterDefinition.normalized(data)
+	data = character_definition
+	if rig_nodes.is_empty() or equipment_visuals == null:
+		return true
+	body_metrics = CharacterDefinition.metrics(data)
+	_reset_rig(data)
+	for piece in _base_pieces:
+		piece.visible = data.is_empty()
+	for piece in _model_pieces:
+		piece.get_parent().remove_child(piece)
+		piece.queue_free()
+	_model_pieces.clear()
+	if not data.is_empty():
+		var meshes := CharacterBodyMesh.build(data, editor_mode)
+		var material := CharacterBodyMesh.material()
+		for bone in meshes:
+			var piece := MeshInstance3D.new()
+			piece.name = "CharacterCubes_" + bone
+			piece.mesh = meshes[bone]
+			piece.material_override = material
+			rig_nodes[bone].add_child(piece)
+			_model_pieces.append(piece)
+	if rig_changed:
+		var ids: Array[int] = equipment_visuals.equipped_ids.duplicate()
+		var items: Array = equipment_visuals.equipped_items.duplicate(true)
+		var motion_enabled: bool = equipment_visuals.motion_enabled
+		remove_child(equipment_visuals)
+		equipment_visuals.queue_free()
+		equipment_visuals = EQUIPMENT_VISUALS.new()
+		add_child(equipment_visuals)
+		equipment_visuals.apply_equipment(ids, items)
+		equipment_visuals.set_motion_enabled(motion_enabled)
+	set_held_block(held_item.block_id)
+	return true
+
+func rest_origin(bone: String) -> Vector3:
+	return CharacterDefinition.rest_origins(character_definition).get(bone, Vector3.ZERO)
+
+func palm_position() -> Vector3:
+	if character_definition.is_empty():
+		return PALM_POSITION
+	return CharacterDefinition.vector(character_definition.sockets.right_grip.offset)
 
 func set_held_block(id: int) -> void:
+	var parent: Node3D = right_forearm if character_definition.is_empty() else rig_nodes[character_definition.sockets.right_grip.bone]
+	if held_item.get_parent() != parent:
+		held_item.reparent(parent,false)
 	if held_item.block_id != id:
 		swing_cycle_running = false
 		swing_cycle_time = 0.0
 		swing_phase = 0.0
 		swing = 0.0
 		swing_contact = false
-	held_item.position = PALM_POSITION if ItemCatalog.is_tool_item(id) or ItemCatalog.is_weapon(id) else BLOCK_HOLD_POSITION
+	held_item.position = palm_position() if ItemCatalog.is_tool_item(id) or ItemCatalog.is_weapon(id) else palm_position() + Vector3(0.12, 0, -0.18) * float(body_metrics.unit)
 	held_item.set_block(id)
 	held_item.update_third_person_grip(body.global_basis, swing, _compute_swing_motion().get("grip_rotation"))
 
@@ -174,8 +257,8 @@ func animate(delta: float, speed: float, airborne: bool, mining: bool, swimming:
 		body.rotation.x = lerpf(body.rotation.x, tilt, minf(delta * 8.0, 1.0))
 		body.rotation.y = lerpf(body.rotation.y, 0.0, minf(delta * 8.0, 1.0))
 		body.rotation.z = lerpf(body.rotation.z, 0.0, minf(delta * 8.0, 1.0))
-		body.position = Vector3(0, 0.9, 0) + Basis(Vector3.RIGHT, body.rotation.x) * Vector3(0, -0.9, 0)
-		body.position.y += 0.15
+		body.position = Vector3(0, body_metrics.motion_pivot, 0) + Basis(Vector3.RIGHT, body.rotation.x) * Vector3(0, -body_metrics.motion_pivot, 0)
+		body.position.y += 0.15 * float(body_metrics.unit)
 		
 		var left_pose := Vector3(2.05 + stroke * 0.95, -0.2 * cos(swim_phase), -0.30 - 0.20 * cos(swim_phase)) if moving_in_water else Vector3(0.7 + stroke * 0.15, -0.1, -0.3)
 		var right_pose := Vector3(2.05 - stroke * 0.95, 0.2 * cos(swim_phase), 0.30 - 0.20 * cos(swim_phase)) if moving_in_water else Vector3(0.7 - stroke * 0.15, 0.1, 0.3)
@@ -219,7 +302,7 @@ func animate(delta: float, speed: float, airborne: bool, mining: bool, swimming:
 	
 	if is_moving:
 		var step_freq: float = lerpf(speed * 2.2, speed * 2.3 + 1.6, sprint_blend)
-		phase += delta * step_freq
+		phase += delta * step_freq / float(body_metrics.stride)
 	
 	# 4. 滞空状态（Airborne / 跳跃）
 	var s_motion: Dictionary = _compute_swing_motion()
@@ -229,7 +312,7 @@ func animate(delta: float, speed: float, airborne: bool, mining: bool, swimming:
 		body.rotation.x = lerpf(body.rotation.x, -0.08 + s_motion.body_pitch * swing * 0.5, minf(delta * 8.0, 1.0))
 		body.rotation.y = lerpf(body.rotation.y, s_motion.body_yaw * swing * 0.5, minf(delta * 8.0, 1.0))
 		body.rotation.z = lerpf(body.rotation.z, 0.0, minf(delta * 8.0, 1.0))
-		body.position = Vector3(0, 0.9, 0) + Basis.from_euler(body.rotation) * Vector3(0, -0.9, 0)
+		body.position = Vector3(0, body_metrics.motion_pivot, 0) + Basis.from_euler(body.rotation) * Vector3(0, -body_metrics.motion_pivot, 0)
 		
 		left_leg.rotation = Vector3(-0.35, 0.0, -0.02)
 		right_leg.rotation = Vector3(0.40, 0.0, 0.02)
@@ -263,10 +346,10 @@ func animate(delta: float, speed: float, airborne: bool, mining: bool, swimming:
 	var target_yaw: float = sin(phase) * lerpf(0.008, 0.018, sprint_blend) * run_blend
 	var target_roll: float = cos(phase) * lerpf(0.003, 0.008, sprint_blend) * run_blend
 	
-	var base_hip_pos: Vector3 = Vector3(0, 0.9, 0) + Basis.from_euler(body.rotation) * Vector3(0, -0.9, 0)
+	var base_hip_pos: Vector3 = Vector3(0, body_metrics.motion_pivot, 0) + Basis.from_euler(body.rotation) * Vector3(0, -body_metrics.motion_pivot, 0)
 	var idle_bob: float = sin(idle_phase) * 0.006 * (1.0 - run_blend)
 	var run_bounce: float = absf(sin(phase)) * lerpf(0.026, 0.046, sprint_blend) * run_blend
-	body.position = base_hip_pos + Vector3(0, idle_bob + run_bounce + s_motion.hip_drop * swing, 0)
+	body.position = base_hip_pos + Vector3(0, (idle_bob + run_bounce + s_motion.hip_drop * swing) * float(body_metrics.unit), 0)
 	
 	# 双腿动力学：大腿前后迈步与侧展微调，保持中轴平稳扎实
 	var leg_sin: float = sin(phase)
@@ -514,6 +597,7 @@ func _box(parent: Node3D, pos: Vector3, size: Vector3, material: Material) -> vo
 	instance.material_override = material
 	instance.position = pos
 	parent.add_child(instance)
+	_base_pieces.append(instance)
 
 func _limb(parent: Node3D, pos: Vector3, size: Vector3, material: Material) -> Node3D:
 	var pivot := Node3D.new()

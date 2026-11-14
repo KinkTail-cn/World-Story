@@ -11,6 +11,7 @@ signal home_requested
 signal save_requested
 signal menu_requested
 signal settings_requested
+signal character_requested
 
 const Catalog = preload("res://scripts/inventory/ItemCatalog.gd")
 const ItemTooltip = preload("res://scripts/ui/ItemTooltip.gd")
@@ -28,6 +29,7 @@ var blueprints: RefCounted
 var item_tooltip: Control
 var vitals_label: Label
 var hurt_overlay: ColorRect
+var character_creator: Control
 
 @onready var slots: HBoxContainer = $Root/Bottom/HotbarDock/Margin/Hotbar if has_node("Root/Bottom/HotbarDock/Margin/Hotbar") else $Root/Bottom/Hotbar
 @onready var target: Label = $Root/Aim/Target
@@ -107,7 +109,7 @@ func _ready() -> void:
 	inventory_panel.slot_requested.connect(func(index: int): slot_requested.emit(index))
 	blueprint_workshop.closed.connect(func(): design_closed.emit())
 	notebook_panel.closed.connect(func(): design_closed.emit())
-	show_message("自由采集与建造 · B 背包合成 · P 蓝图工坊 · F5 保存")
+	show_message("自由采集与建造 · B 背包 · P 蓝图 · K 人物创造器")
 	$Root.resized.connect(_layout)
 	_layout.call_deferred()
 
@@ -248,7 +250,7 @@ func close_design() -> void:
 	design_closed.emit()
 
 func any_modal_visible() -> bool:
-	return pause_panel.visible or inventory_panel.visible or function_wheel.visible or blueprint_workshop.visible or notebook_panel.visible
+	return pause_panel.visible or inventory_panel.visible or function_wheel.visible or blueprint_workshop.visible or notebook_panel.visible or character_creator.visible
 
 func _create_sandbox_ui() -> void:
 	hurt_overlay = ColorRect.new()
@@ -266,7 +268,7 @@ func _create_sandbox_ui() -> void:
 	$Root.add_child(vitals_label)
 	$Root.move_child(vitals_label, $Root/FunctionWheel.get_index())
 	var pause_content := $Root/Pause/Panel/Margin/Content
-	for data in [{"title": "保存进度  F5", "action": save_requested}, {"title": "游戏设置", "action": settings_requested}, {"title": "返回出生点", "action": home_requested}, {"title": "保存并返回标题", "action": menu_requested}]:
+	for data in [{"title": "保存进度  F5", "action": save_requested}, {"title": "游戏设置", "action": settings_requested}, {"title": "人物创造器  K", "action": character_requested}, {"title": "返回出生点", "action": home_requested}, {"title": "保存并返回标题", "action": menu_requested}]:
 		var button: Button = $Root/Pause/Panel/Margin/Content/Resume.duplicate()
 		button.text = data.title
 		button.name = "Action" + str(pause_content.get_child_count())
@@ -279,7 +281,10 @@ func _create_sandbox_ui() -> void:
 	$Root/Pause/Panel/Margin/Content/Title.text = "游戏暂停"
 	$Root/Pause/Panel/Margin/Content/Description.text = "返回出生点保留背包物品 · 出生点附近可恢复生命\n每两分钟自动保存，F5 随时保存。"
 	$Root/Pause/Panel/Margin/Content/Quit.text = "保存并退出游戏"
-	$Root/TopRightPanel/Margin/TopRight/Keys.text = "B 背包   P 蓝图   G 功能   V 视角   F11 全屏"
+	$Root/TopRightPanel/Margin/TopRight/Keys.text = "K 人物   B 背包   P 蓝图   V 视角   F11 全屏"
+	character_creator = preload("res://scripts/ui/CharacterCreator.gd").new()
+	character_creator.name = "CharacterCreator"
+	$Root.add_child(character_creator)
 
 func update_vitals(health: float, air: float, hurt: bool) -> void:
 	var creative: bool = inventory != null and inventory.is_creative()

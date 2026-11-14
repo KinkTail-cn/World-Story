@@ -12,6 +12,7 @@ signal closed
 const BlueprintDataScript = preload("res://scripts/blueprint/BlueprintData.gd")
 const ManagerScript = preload("res://scripts/blueprint/BlueprintManager.gd")
 const CharacterVisualScript = preload("res://scripts/player/CharacterVisual.gd")
+const CharacterDefinition = preload("res://scripts/character/CharacterDefinition.gd")
 const EquipmentDesign = preload("res://scripts/blueprint/BlueprintEquipment.gd")
 const Geometry = preload("res://scripts/blueprint/BlueprintGeometry.gd")
 const Materials = preload("res://scripts/blueprint/BlueprintMaterials.gd")
@@ -570,6 +571,12 @@ func _focus_camera_on_category(category: String, immediate: bool = false) -> voi
 			target_center = Vector3(0, 0.50, 0)
 			target_dist = 2.35
 			target_pitch = -0.10
+	if is_instance_valid(player_template) and not player_template.character_definition.is_empty():
+		var data: Dictionary = player_template.character_definition
+		var char_point := Geometry.PREVIEW_FLIP * target_center
+		var bone := "right_forearm" if category in ["武器","工具"] else Geometry.auto_anchor(category,char_point)
+		target_center = Geometry.PREVIEW_FLIP * (Vector3(CharacterDefinition.rest_origins(data)[bone]) + CharacterDefinition.local_fit({},data,bone) * (char_point - Vector3(Geometry.ORIGINS[bone])))
+		target_dist *= maxf(0.75,CharacterDefinition.unit(data))
 
 	if immediate:
 		current_look_center = target_center
@@ -912,6 +919,7 @@ func _refresh_palette_highlight() -> void:
 # -----------------------------------------------------------------------------
 
 func _rebuild_template() -> void:
+	_fit_draft_to_character()
 	for child in preview_root.get_children():
 		preview_root.remove_child(child)
 		child.queue_free()
@@ -930,6 +938,36 @@ func _rebuild_template() -> void:
 	voxel_blocks.clear()
 	_build_template_for(current_category)
 	_sync_voxels()
+
+func _fit_draft_to_character() -> void:
+	if blueprint == null:
+		return
+	var target := CharacterDefinition.rig_reference(player_template.character_definition) if is_instance_valid(player_template) else {}
+	var source: Dictionary = blueprint.rig_reference
+	if source == target:
+		return
+	var fitted: Array[Dictionary] = []
+	var origins := CharacterDefinition.rest_origins(target)
+	var fits := {}
+	for index in blueprint.voxels.size():
+		var part: Dictionary = blueprint.voxels[index]
+		var category := str(part.part)
+		var bone := Geometry.anchor(part,category,source)
+		if not fits.has(bone):
+			fits[bone] = CharacterDefinition.local_fit(source,target,bone)
+		var fit: Transform3D = fits[bone]
+		var budget := maxi(1,(BlueprintDataScript.MAX_PARTS-fitted.size()) / maxi(1,blueprint.voxels.size()-index))
+		var center := Geometry.vector(part.offset) if part.has("offset") else Geometry.local_transform(part,category,source).origin
+		var cells := CharacterDefinition.voxelize_box(center,Geometry.dimensions(part),fit,budget)
+		for cell_index in cells.size():
+			var copy := part.duplicate(true)
+			copy.dimensions = Geometry.array(Vector3.ONE * float(cells[cell_index].edge))
+			copy.uid = str(part.get("uid","part_%d" % index)) + ("_fit_%d" % cell_index if cells.size() > 1 else "")
+			Geometry.set_character_transform(copy,category,Transform3D(Basis.IDENTITY,Vector3(origins[bone])+Vector3(cells[cell_index].center)),bone,target)
+			fitted.append(copy)
+	blueprint.voxels = fitted
+	blueprint.rig_reference = target.duplicate(true)
+	blueprint.ensure_ids()
 
 
 # -----------------------------------------------------------------------------
@@ -1127,6 +1165,13 @@ func _ghost_material(color: Color, alpha: float) -> StandardMaterial3D:
 
 
 func _add_pick_collider(pos: Vector3, box_size: Vector3, part_name: String, show_guide: bool = true) -> void:
+	if is_instance_valid(player_template) and not player_template.character_definition.is_empty():
+		var char_pos := Geometry.PREVIEW_FLIP * pos
+		var bone := Geometry.auto_anchor(current_category,char_pos)
+		var fit := CharacterDefinition.local_fit({},player_template.character_definition,bone)
+		var origin: Vector3 = CharacterDefinition.rest_origins(player_template.character_definition)[bone]
+		pos = Geometry.PREVIEW_FLIP * (origin + fit * (char_pos - Vector3(Geometry.ORIGINS[bone])))
+		box_size *= Vector3(fit.basis.x.length(),fit.basis.y.length(),fit.basis.z.length())
 	# 专用于微体素吸附与拾取的物理空间盒（精确对齐真实人体骨骼）
 	var body := StaticBody3D.new()
 	body.name = "Pick_" + part_name
@@ -1168,6 +1213,8 @@ func _build_template_for(category: String) -> void:
 	# 核心改动：角色旋转 180 度，面部五官（眼睛、面庞、发型与前襟）初始 100% 正对玩家镜头视角！
 	real_character.rotation.y = PI
 	template_root.add_child(real_character)
+	if is_instance_valid(player_template):
+		real_character.apply_character(player_template.character_definition)
 	
 	# 隐藏手持施工方块，角色自然直立
 	if is_instance_valid(real_character.held_item):
@@ -1243,7 +1290,7 @@ func _sync_voxels() -> void:
 		var v_size: int = int(voxel.get("size", SIZE_EIGHTH))
 		var v_scale: float = _get_size_scale(v_size)
 		var actual_size := Geometry.dimensions(voxel)
-		var transform := Geometry.preview_transform(voxel, current_category)
+		var transform := Geometry.preview_transform(voxel, current_category,blueprint.rig_reference)
 		var cube := MeshInstance3D.new()
 		cube.mesh = Geometry.mesh(voxel)
 		cube.material_override = Materials.create(voxel)
@@ -1353,9 +1400,9 @@ func _preview_input(event: InputEvent) -> void:
 				var index: int = blueprint.find_part(uid)
 				var old_index: int = old_parts.find_part(uid)
 				if index >= 0 and old_index >= 0 and not bool(blueprint.voxels[index].get("locked", false)):
-					var transform := Geometry.character_transform(old_parts.voxels[old_index], current_category)
+					var transform := Geometry.character_transform(old_parts.voxels[old_index], current_category,blueprint.rig_reference)
 					transform.origin += delta
-					Geometry.set_character_transform(blueprint.voxels[index], current_category, transform)
+					Geometry.set_character_transform(blueprint.voxels[index], current_category, transform,"",blueprint.rig_reference)
 			_update_drag_visuals()
 		elif dragging_preview and editor_mode == "select" and event.position.distance_to(preview_press_position) > 6.0:
 			box_selecting = true
@@ -1387,7 +1434,7 @@ func _update_drag_visuals() -> void:
 		var index: int = blueprint.find_part(str(block.uid))
 		if index >= 0:
 			var part: Dictionary = blueprint.voxels[index]
-			var transform := Geometry.preview_transform(part, current_category)
+			var transform := Geometry.preview_transform(part, current_category,blueprint.rig_reference)
 			block.node.transform = transform
 			block.body.transform = transform
 			block.body.set_meta("primitive", part.duplicate(true))
@@ -1455,7 +1502,7 @@ func _update_hover_preview(point: Vector2) -> void:
 	var placement := _placement_from_hit(result)
 	hover_mesh.mesh = Geometry.mesh(placement)
 	hover_mesh.material_override = Materials.create(placement, true)
-	hover_indicator.transform = Geometry.preview_transform(placement, current_category)
+	hover_indicator.transform = Geometry.preview_transform(placement, current_category,blueprint.rig_reference)
 	hover_outline_box.scale = Geometry.dimensions(placement) / VOXEL_SIZE
 	hover_indicator.visible = true
 
@@ -1464,13 +1511,13 @@ func _placement_from_hit(hit: Dictionary) -> Dictionary:
 	if int(brush.get("size", 1)) != current_voxel_size:
 		extent = Vector3.ONE * VOXEL_SIZE * _get_size_scale(current_voxel_size)
 	var bone := str(brush.get("anchor", ""))
-	var part := Geometry.primitive(current_category, Vector3.ZERO, extent, bone)
+	var part := Geometry.primitive(current_category, Vector3.ZERO, extent, bone,blueprint.rig_reference)
 	part["mat"] = selected_material
 	part["size"] = current_voxel_size
 	for key in ["tint", "surface", "motion"]:
 		if brush.has(key):
 			part[key] = brush[key].duplicate(true) if brush[key] is Dictionary else brush[key]
-	var basis := Geometry.preview_transform(part, current_category).basis
+	var basis := Geometry.preview_transform(part, current_category,blueprint.rig_reference).basis
 	var target: Dictionary = _get_meta(hit.collider, "primitive", {})
 	var standard := Vector3.ONE * VOXEL_SIZE * _get_size_scale(current_voxel_size)
 	var target_extent := Geometry.dimensions(target)
@@ -1478,7 +1525,7 @@ func _placement_from_hit(hit: Dictionary) -> Dictionary:
 	var basic: bool = extent.is_equal_approx(standard) and absf(axis.dot(Vector3(hit.normal))) > 0.9999
 	var target_uniform := is_equal_approx(target_extent.x, target_extent.y) and is_equal_approx(target_extent.x, target_extent.z)
 	var center: Vector3
-	var origin := EquipmentDesign.template_origin(current_category)
+	var origin := Geometry.template_origin(current_category,blueprint.rig_reference)
 	if basic and (target.is_empty() or target_uniform):
 		if target.is_empty():
 			center = origin + _template_center(origin, hit.position, hit.normal)
@@ -1488,8 +1535,8 @@ func _placement_from_hit(hit: Dictionary) -> Dictionary:
 	else:
 		center = Geometry.placement(hit.position, hit.normal, part, basis, 0.0325)
 	var char_transform := Transform3D(Geometry.PREVIEW_FLIP * basis, Geometry.PREVIEW_FLIP * center)
-	var selected_anchor := bone if not bone.is_empty() else Geometry.auto_anchor(current_category, char_transform.origin)
-	Geometry.set_character_transform(part, current_category, char_transform, selected_anchor)
+	var selected_anchor := bone if not bone.is_empty() else Geometry.auto_anchor(current_category, char_transform.origin,blueprint.rig_reference)
+	Geometry.set_character_transform(part, current_category, char_transform, selected_anchor,blueprint.rig_reference)
 	return part
 
 
@@ -2089,8 +2136,9 @@ func _set_preview_pose(index: int) -> void:
 		voxel_container.visible = index == 0
 	real_character.held_item.visible = index == 4
 	if index > 0 and blueprint != null:
-		current_look_center = Vector3(0, 1.05, 0)
-		preview_distance = 4.0
+		var factor: float = real_character.body_metrics.height / 1.8
+		current_look_center = Vector3(0, 1.05 * factor, 0)
+		preview_distance = 4.0 * factor
 		_update_camera_transform()
 		hover_indicator.visible = false
 		pose_renderer = BlueprintRenderer.new()
@@ -2128,7 +2176,7 @@ func _frame_selection() -> void:
 	var bounds := AABB()
 	var first := true
 	for part in parts:
-		var box: AABB = Geometry.preview_transform(part, current_category) * Geometry.mesh(part).get_aabb()
+		var box: AABB = Geometry.preview_transform(part, current_category,blueprint.rig_reference) * Geometry.mesh(part).get_aabb()
 		bounds = box if first else bounds.merge(box)
 		first = false
 	current_look_center = bounds.get_center()

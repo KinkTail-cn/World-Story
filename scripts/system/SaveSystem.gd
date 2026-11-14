@@ -3,6 +3,7 @@ extends RefCounted
 const SAVE_PATH := "user://world_story_save.json"
 const Blueprint = preload("res://scripts/blueprint/BlueprintData.gd")
 const Items = preload("res://scripts/inventory/ItemCatalog.gd")
+const CharacterDefinition = preload("res://scripts/character/CharacterDefinition.gd")
 var save_path: String = SAVE_PATH
 var recovered_backup: bool = false
 var last_error: String = ""
@@ -139,6 +140,12 @@ func world_validation_error(data: Dictionary) -> String:
 	if player.has("inventory"):
 		if not player.inventory is Dictionary or not _inventory_valid(player.inventory):
 			return "存档的背包或装备数据无效"
+	if player.has("character"):
+		if not player.character is Dictionary:
+			return "存档的人物模型格式无效"
+		var character_error := CharacterDefinition.playable_error(player.character)
+		if not character_error.is_empty():
+			return character_error
 	return ""
 
 func _inventory_valid(data: Dictionary) -> bool:
@@ -263,11 +270,16 @@ func save_player(player) -> Dictionary:
 	result["air"] = float(_read_value(player, "air", 18.0))
 	result["mined"] = int(_read_value(player, "mined", 0))
 	result["placed"] = int(_read_value(player, "placed", 0))
+	var character: Dictionary = _read_value(player, "character_definition", {})
+	if not character.is_empty():
+		result["character"] = character.duplicate(true)
 	if inventory != null:
 		result["inventory"] = save_inventory(inventory)
 	return result
 
 func apply_player(player, data: Dictionary) -> void:
+	if player is Object and player.has_method("apply_character"):
+		player.apply_character(data.get("character", {}), false)
 	for key in ["health", "air"]:
 		if data.has(key):
 			_write_value(player, key, float(data[key]))
