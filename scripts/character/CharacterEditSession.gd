@@ -128,6 +128,7 @@ func set_properties(values: Dictionary) -> bool:
 			var center: Vector3 = origins[cube.bone] + Definition.vector(cube.center)
 			cube.bone = str(values.bone)
 			cube.center = Definition.array(center - Vector3(origins[cube.bone]))
+			cube.erase("connection")
 		if not bool(model.cubes[index].get("locked",false)):
 			for key in ["center","edge","color","hidden","locked"]:
 				if values.has(key):
@@ -156,6 +157,8 @@ func duplicate_selected(mirror: bool = false) -> bool:
 			pos.x = -pos.x
 			copy.bone = mirror_bone(str(cube.bone))
 			copy.center = Definition.array(pos - Vector3(origins[copy.bone]))
+			if copy.has("connection"):
+				copy.connection = mirror_bone(str(copy.connection))
 		else:
 			copy.center = Definition.array(Definition.vector(copy.center) + Vector3.RIGHT * float(copy.edge))
 		patches.append({"index":model.cubes.size()+patches.size(),"before":{},"after":copy})
@@ -232,13 +235,14 @@ func move_joint(bone: String, position: Vector3, symmetric: bool = true, reshape
 	return record(before)
 
 func _move_branch(bone: String, delta: Vector3, origins: Dictionary) -> void:
-	for candidate in Definition.BONES:
-		var ancestor: String = candidate
-		while not ancestor.is_empty():
-			if ancestor == bone:
-				model.joints[candidate] = Definition.array(Vector3(origins[candidate]) + delta)
-				break
-			ancestor = Definition.PARENTS[ancestor]
+	Definition.move_branch(model,bone,delta,origins)
+
+func repair_connections() -> bool:
+	var before := snapshot()
+	model.cubes = Definition.repaired_connections(model)
+	_reference_dirty = true
+	selection.clear()
+	return record(before)
 
 func set_socket(key: String, offset: Vector3) -> bool:
 	if key not in Definition.SOCKETS:

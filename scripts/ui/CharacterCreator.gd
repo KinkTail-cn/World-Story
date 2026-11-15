@@ -241,6 +241,7 @@ func _build_skeleton_tab(tabs: TabContainer) -> void:
 	stack.add_theme_constant_override("separation", 8)
 	scroll.add_child(stack)
 	stack.add_child(_label("体型参数", 20))
+	stack.add_child(_button("修复部位连接",func(): _feedback(edit_session.repair_connections())))
 	for key in Definition.DEFAULTS:
 		stack.add_child(_label(Definition.PARAMETER_NAMES[key], 14))
 		var row := HBoxContainer.new()
@@ -1060,13 +1061,13 @@ func _preview_input(event: InputEvent) -> void:
 				var origins := Definition.rest_origins(edit_session.model)
 				var preview_data: Dictionary = edit_session.model.duplicate(true)
 				var delta: Vector3 = _drag_joint_position - Vector3(origins[_drag_joint])
-				for bone in Definition.BONES:
-					var ancestor: String = bone
-					while not ancestor.is_empty():
-						if ancestor == _drag_joint:
-							preview_data.joints[bone] = Definition.array(Vector3(origins[bone]) + delta)
-							break
-						ancestor = Definition.PARENTS[ancestor]
+				Definition.move_branch(preview_data,_drag_joint,delta,origins)
+				if symmetric.button_pressed:
+					var other := Session.mirror_bone(_drag_joint)
+					if other != _drag_joint:
+						var opposite := Vector3(-_drag_joint_position.x,_drag_joint_position.y,_drag_joint_position.z)
+						Definition.move_branch(preview_data,other,opposite-Vector3(origins[other]),origins)
+				Definition.normalize_joints(preview_data)
 				preview_character._reset_rig(preview_data)
 				_draw_skeleton(preview_data)
 		_selection_overlay.queue_redraw()

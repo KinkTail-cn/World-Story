@@ -199,6 +199,17 @@ func _run() -> void:
 	game._open_character_creator()
 	await frames()
 	editor = game.hud.character_creator
+	var legacy_body: Dictionary = editor.edit_session.model.duplicate(true)
+	legacy_body.cubes = legacy_body.cubes.filter(func(cube): return not cube.has("connection"))
+	legacy_body.parameters.shoulder_width = 1.5
+	editor._bind(legacy_body)
+	await frames()
+	click(find_button(editor,"修复部位连接"))
+	await frames()
+	check(editor.edit_session.model.cubes.size()>legacy_body.cubes.size() and editor.edit_session.undo_stack.size()==1,"The actual repair button adds joint links as one undoable operation")
+	key(KEY_Z,true)
+	await frames()
+	check(editor.edit_session.model==legacy_body,"Undo from the UI restores the exact pre-repair character")
 	check(editor.edit_session.add("head",Vector3(0.3,0,0),0.065,Color.WHITE), "Create an unsaved character edit for lifecycle protection")
 	editor.request_close()
 	check(editor.unsaved_dialog.visible and editor.visible and paused, "Unsaved character blocks accidental close")

@@ -10,6 +10,7 @@ const PARAMETER_NAMES := {"height": "基础身高（米）", "torso_length": "�
 const RANGES := {"height": Vector2(1.1, 2.8), "torso_length": Vector2(0.7, 1.4), "leg_length": Vector2(0.7, 1.4), "arm_length": Vector2(0.65, 1.4), "shoulder_width": Vector2(0.7, 1.5), "hip_width": Vector2(0.75, 1.5), "body_width": Vector2(0.65, 1.8), "body_depth": Vector2(0.65, 1.8), "arm_width": Vector2(0.65, 1.6), "leg_width": Vector2(0.65, 1.6), "head_size": Vector2(0.7, 1.35)}
 const PALETTE := {"skin": "f5d3b0", "hair": "563e3d", "shirt": "4f98aa", "trim": "fff0cf", "leather": "78513f", "pants": "384862", "eyes": "304354"}
 const SOCKETS := {"eyes": {"bone": "head", "offset": [0, 0.025, 0]}, "breathing": {"bone": "head", "offset": [0, -0.125, 0]}, "right_grip": {"bone": "right_hand", "offset": [0, 0, 0]}}
+const CONNECTION_IDS: Array[String] = ["waist", "neck", "left_shoulder", "right_shoulder", "left_hip", "right_hip", "left_wrist", "right_wrist", "left_ankle", "right_ankle", "left_shoulder_cap", "right_shoulder_cap", "left_elbow_cap", "right_elbow_cap", "left_elbow_upper_cap", "right_elbow_upper_cap", "left_hip_cap", "right_hip_cap", "left_knee_cap", "right_knee_cap", "left_knee_upper_cap", "right_knee_upper_cap"]
 
 static func vector(value: Variant) -> Vector3:
 	return Vector3(float(value[0]), float(value[1]), float(value[2]))
@@ -61,6 +62,20 @@ static func normalize_joints(data: Dictionary) -> void:
 		if bone != "body":
 			data.joints[bone] = array(origins[bone])
 
+static func move_branch(data: Dictionary, bone: String, delta: Vector3, origins: Dictionary) -> void:
+	for candidate in BONES:
+		var ancestor: String = candidate
+		while not ancestor.is_empty():
+			if ancestor == bone:
+				var position: Vector3 = origins[candidate] + delta
+				# Editing the knee or pelvis changes limb proportions. Keep
+				# descendant soles planted; an explicitly edited foot is free.
+				if candidate.ends_with("_foot") and candidate != bone:
+					position.y = Vector3(origins[candidate]).y
+				data.joints[candidate] = array(position)
+				break
+			ancestor = PARENTS[ancestor]
+
 static func _form_frame(data: Dictionary, bone: String) -> Transform3D:
 	var origins := rest_origins(data)
 	var p := parameters(data)
@@ -68,11 +83,21 @@ static func _form_frame(data: Dictionary, bone: String) -> Transform3D:
 	var scale := Vector3.ONE * u
 	var origin: Vector3 = origins[bone]
 	var along := Vector3.UP * u
-	if bone in ["body", "chest", "neck", "pelvis"]:
+	if bone in ["body", "chest", "pelvis"]:
 		scale = Vector3(float(p.body_width), float(p.torso_length), float(p.body_depth)) * u
 		along = (Vector3(origins.neck) - Vector3(origins.pelvis)) / 0.675
-		if bone == "body":
-			origin = origins.chest
+		if bone in ["body", "chest"]:
+			# The torso must reach both endpoints even when its chest pivot
+			# was moved separately from the pelvis or neck.
+			origin = (Vector3(origins.neck)+Vector3(origins.pelvis))*0.5
+			var arm_half := 0.1125*float(p.arm_width)*u
+			var clearance := minf(Vector3(origins.right_arm).x-origin.x-arm_half,origin.x-Vector3(origins.left_arm).x-arm_half)
+			scale.x = minf(scale.x,maxf(0.05*u,clearance)/0.225)
+	elif bone == "neck":
+		scale = Vector3.ONE * float(p.head_size) * u
+		along = Vector3(origins.head)-Vector3(origins.neck)
+		along.y = maxf(0.005,along.y)
+		along /= 0.225
 	elif bone == "head":
 		scale = Vector3.ONE * float(p.head_size) * u
 		along = Vector3.UP * scale.y
@@ -85,6 +110,9 @@ static func _form_frame(data: Dictionary, bone: String) -> Transform3D:
 			along = (Vector3(origins[bone]) - Vector3(origins[bone.replace("_forearm", "_hand")])) / 0.225
 	else:
 		scale = Vector3(float(p.leg_width), float(p.leg_length), float(p.leg_width)) * u
+		var prefix := "_foot" if bone.ends_with("_foot") else ("_lower_leg" if bone.ends_with("_lower_leg") else "_leg")
+		var spacing: float = absf(Vector3(origins["right"+prefix]).x-Vector3(origins["left"+prefix]).x)
+		scale.x = minf(scale.x,maxf(0.05*u,spacing)/0.225)
 		along = Vector3.UP * scale.y
 		if bone.ends_with("_leg") and not bone.ends_with("_lower_leg"):
 			along = (Vector3(origins[bone]) - Vector3(origins[bone.replace("_leg", "_lower_leg")])) / 0.34
@@ -158,7 +186,9 @@ static func generate_body(data: Dictionary) -> Array[Dictionary]:
 		var cells := voxelize_box(center, source.size, local_fit(reference, data, bone), int(budget))
 		for cell in cells:
 			result.append({"id": "base_%d" % result.size(), "bone": bone, "center": array(cell.center), "edge": snappedf(float(cell.edge), 0.000001), "color": str(data.get("palette", PALETTE).get(source.color, PALETTE[source.color]))})
-	return result
+	var reference_body := data.duplicate(false)
+	reference_body.cubes = result
+	return _append_connections(result,connection_cubes(reference_body,data))
 
 static func voxelize_box(center: Vector3, size: Vector3, fit: Transform3D, budget: int = 128) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
@@ -226,7 +256,12 @@ static func _tile_box(box: AABB, budget: int) -> Array[Dictionary]:
 	return [{"center": box.get_center(), "edge": clampf(minf(box.size.x,minf(box.size.y,box.size.z)),0.005,1.0)}]
 
 static func reshape(reference: Dictionary, target: Dictionary) -> Array[Dictionary]:
-	var source := _reference_volumes(reference.get("cubes", []))
+	var connections := connection_cubes(reference,target)
+	var authored: Array = reference.get("cubes",[]).filter(func(cube): return not cube.has("connection"))
+	var source := _reference_volumes(authored)
+	var budget := MAX_CUBES-connections.size()
+	if source.size() > budget:
+		return []
 	var result: Array[Dictionary] = []
 	var fits := {}
 	for bone in BONES:
@@ -234,7 +269,7 @@ static func reshape(reference: Dictionary, target: Dictionary) -> Array[Dictiona
 	for source_index in source.size():
 		var cube: Dictionary = source[source_index]
 		var fit: Transform3D = fits[cube.bone]
-		var cells := voxelize_box(cube.center, cube.size, fit, maxi(1, (MAX_CUBES - result.size()) / maxi(1, source.size() - source_index)))
+		var cells := voxelize_box(cube.center, cube.size, fit, maxi(1, (budget-result.size()) / maxi(1,source.size()-source_index)))
 		for index in cells.size():
 			var copy: Dictionary = cube.duplicate(true)
 			copy.center = array(cells[index].center)
@@ -242,8 +277,122 @@ static func reshape(reference: Dictionary, target: Dictionary) -> Array[Dictiona
 			copy.erase("size")
 			copy.id = "reshape_%d_%d" % [source_index,index]
 			result.append(copy)
-			if result.size() > MAX_CUBES:
+			if result.size() > budget:
 				return []
+	return _append_connections(result,connections)
+
+static func repaired_connections(data: Dictionary) -> Array[Dictionary]:
+	var authored: Array[Dictionary] = []
+	for cube in data.cubes:
+		if not cube.has("connection"):
+			authored.append(cube.duplicate(true))
+	return _append_connections(authored,connection_cubes(data,data))
+
+static func _append_connections(authored: Array[Dictionary], connections: Array[Dictionary]) -> Array[Dictionary]:
+	if authored.size()+connections.size() > MAX_CUBES:
+		return []
+	var ids := {}
+	for cube in authored:
+		ids[cube.id] = true
+	for cube in connections:
+		var id := str(cube.id)
+		while ids.has(id):
+			id += "_joint"
+		cube.id = id
+		ids[id] = true
+		authored.append(cube)
+	return authored
+
+## Joint links are ordinary, editable upright cubes. Their overlapping
+## centers cover the actual joint in both adjacent rigid frames, closing
+## elbows and knees during motion without bending individual cubes.
+static func connection_cubes(reference: Dictionary, target: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var origins := rest_origins(target)
+	var defaults := rest_origins({})
+	var grouped := {}
+	var colors := {}
+	for cube in reference.get("cubes",[]):
+		if cube.has("connection"):
+			if not colors.has(cube.connection):
+				colors[cube.connection] = str(cube.color)
+			continue
+		if not grouped.has(cube.bone):
+			grouped[cube.bone] = []
+		grouped[cube.bone].append(cube)
+	var fits := {}
+	for bone in grouped:
+		fits[bone] = local_fit({},reference,str(bone))
+	var p := parameters(target)
+	var u := unit(target)
+	for spec in connection_specs():
+		var supported := true
+		for support in spec.supports:
+			var bone := str(support.bone)
+			if not grouped.has(bone):
+				supported = false
+				break
+			var local: Vector3 = fits[bone] * (Vector3(support.point)-Vector3(defaults[bone]))
+			var occupied := false
+			for cube in grouped[bone]:
+				var edge := float(cube.edge)+0.012*unit(reference)
+				if AABB(vector(cube.center)-Vector3.ONE*edge*0.5,Vector3.ONE*edge).has_point(local):
+					occupied = true
+					break
+			if not occupied:
+				supported = false
+				break
+		if not supported:
+			continue
+		var factor: float = u * float(p[spec.profile])
+		if str(spec.profile) == "leg_width":
+			factor = minf(factor,maxf(0.05*u,absf(Vector3(origins.right_leg).x-Vector3(origins.left_leg).x))/0.225)
+		var start: Vector3 = origins[spec.start]
+		var finish: Vector3 = origins[spec.finish]
+		var offset: Vector3 = Vector3.DOWN*float(spec.get("drop",0.0))*factor
+		start += offset
+		finish += offset
+		var edge: float = snappedf(float(spec.edge)*factor,0.000001)
+		if str(spec.id) == "waist":
+			edge = minf(edge,0.4*_form_frame(target,"chest").basis.x.length())
+			var direction := (finish-start).normalized()
+			var largest := maxf(absf(direction.x),maxf(absf(direction.y),absf(direction.z)))
+			var inset := minf(start.distance_to(finish)*0.5,edge*0.5/maxf(0.00001,largest))
+			start += direction*inset
+			finish -= direction*inset
+		if str(spec.id).ends_with("_ankle"):
+			edge = minf(edge,minf(start.y,finish.y)*1.8)
+		var steps := maxi(1,ceili((finish-start).abs().length()/(edge*0.6)))
+		var color := str(colors.get(spec.id,target.get("palette",PALETTE).get(spec.color,PALETTE[spec.color])))
+		for index in range(steps+1 if start.distance_to(finish)>0.00001 else 1):
+			var center := start.lerp(finish,float(index)/steps)-Vector3(origins[spec.bone])
+			result.append({"id":"connection_%s_%d" % [spec.id,index],"bone":spec.bone,"center":array(center),"edge":edge,"color":color,"connection":spec.id})
+	return result
+
+static func connection_specs() -> Array[Dictionary]:
+	var defaults := rest_origins({})
+	var result: Array[Dictionary] = [
+		{"id":"waist","bone":"chest","start":"pelvis","finish":"neck","edge":0.2,"profile":"body_depth","color":"shirt","supports":[{"bone":"pelvis","point":Vector3(defaults.pelvis)+Vector3.UP*0.04},{"bone":"chest","point":defaults.chest}]},
+		{"id":"neck","bone":"neck","start":"neck","finish":"head","edge":0.14,"profile":"head_size","color":"skin","supports":[{"bone":"chest","point":Vector3(defaults.neck)-Vector3.UP*0.04},{"bone":"head","point":defaults.head}]}]
+	for side in ["left","right"]:
+		var shoulder: Vector3 = defaults[side+"_arm"]
+		var elbow: Vector3 = defaults[side+"_forearm"]
+		var hand: Vector3 = defaults[side+"_hand"]
+		var hip: Vector3 = defaults[side+"_leg"]
+		var knee: Vector3 = defaults[side+"_lower_leg"]
+		var foot: Vector3 = defaults[side+"_foot"]
+		var shoulder_support := [{"bone":"chest","point":Vector3(defaults.neck)-Vector3.UP*0.04},{"bone":side+"_arm","point":shoulder-Vector3.UP*0.04}]
+		var hip_support := [{"bone":"pelvis","point":Vector3(defaults.pelvis)+Vector3.UP*0.04},{"bone":side+"_leg","point":hip-Vector3.UP*0.04}]
+		var elbow_support := [{"bone":side+"_arm","point":elbow+Vector3.UP*0.04},{"bone":side+"_forearm","point":elbow-Vector3.UP*0.04}]
+		var knee_support := [{"bone":side+"_leg","point":knee+Vector3.UP*0.04},{"bone":side+"_lower_leg","point":knee-Vector3.UP*0.04}]
+		result.append({"id":side+"_shoulder","bone":"chest","start":"neck","finish":side+"_arm","drop":0.06,"edge":0.16,"profile":"arm_width","color":"shirt","supports":shoulder_support})
+		result.append({"id":side+"_hip","bone":"pelvis","start":"pelvis","finish":side+"_leg","drop":0.025,"edge":0.14,"profile":"leg_width","color":"pants","supports":hip_support})
+		result.append({"id":side+"_wrist","bone":side+"_forearm","start":side+"_forearm","finish":side+"_hand","edge":0.12,"profile":"arm_width","color":"skin","supports":[{"bone":side+"_forearm","point":elbow-Vector3.UP*0.07},{"bone":side+"_hand","point":hand}]})
+		result.append({"id":side+"_ankle","bone":side+"_lower_leg","start":side+"_lower_leg","finish":side+"_foot","edge":0.14,"profile":"leg_width","color":"pants","supports":[{"bone":side+"_lower_leg","point":knee-Vector3.UP*0.07},{"bone":side+"_foot","point":foot}]})
+		for entry in [["shoulder_cap","_arm","shirt","arm_width",shoulder_support],["elbow_cap","_forearm","shirt","arm_width",elbow_support],["hip_cap","_leg","pants","leg_width",hip_support],["knee_cap","_lower_leg","pants","leg_width",knee_support]]:
+			result.append({"id":side+"_"+str(entry[0]),"bone":side+str(entry[1]),"start":side+str(entry[1]),"finish":side+str(entry[1]),"drop":0.06 if entry[0]=="shoulder_cap" else (0.025 if entry[0]=="hip_cap" else 0.0),"edge":0.16,"profile":str(entry[3]),"color":str(entry[2]),"supports":entry[4]})
+		result.append({"id":side+"_elbow_upper_cap","bone":side+"_arm","start":side+"_forearm","finish":side+"_forearm","edge":0.16,"profile":"arm_width","color":"shirt","supports":elbow_support})
+		result.append({"id":side+"_knee_upper_cap","bone":side+"_leg","start":side+"_lower_leg","finish":side+"_lower_leg","edge":0.16,"profile":"leg_width","color":"pants","supports":knee_support})
 	return result
 
 ## Join exactly adjacent boxes only in the computational reference volume.
@@ -343,6 +492,8 @@ static func cube_validation_error(cube: Variant) -> String:
 		return "人物方块只能调整统一边长，不能单独旋转或拉伸"
 	if not cube.get("color") is String or not Color.html_is_valid(cube.color):
 		return "方块颜色无效"
+	if cube.has("connection") and (not cube.connection is String or cube.connection not in CONNECTION_IDS):
+		return "关节连接类型无效"
 	for flag in ["hidden", "locked"]:
 		if cube.has(flag) and not cube[flag] is bool:
 			return "方块编辑状态无效"
