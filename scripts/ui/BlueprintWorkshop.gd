@@ -19,6 +19,7 @@ const EditSession = preload("res://scripts/blueprint/BlueprintEditSession.gd")
 const Presets = preload("res://scripts/blueprint/BlueprintPresets.gd")
 const InspectorScene = preload("res://scenes/BlueprintInspector.tscn")
 const BlueprintRenderer = preload("res://scripts/player/BlueprintEquipmentVisual.gd")
+const UI = preload("res://scripts/ui/UIStyle.gd")
 
 const CATEGORIES: Array[String] = [
 	"头部装备", "盔甲", "裤甲", "鞋子", "手套", "披风", "腰带", "武器", "工具", "道具摆件"
@@ -146,6 +147,23 @@ var _pose_view: Dictionary = {}
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	UI.apply(self, true)
+	UI.panel($LeftDrawer/Panel, true, Vector2.ZERO)
+	UI.panel($RightDrawer/Panel, true, Vector2.ZERO)
+	UI.label($TopBar/Title, 22, UI.LIGHT, true)
+	UI.label($TopBar/Status, 14, Color("a5bfbd"))
+	$TopBar/Title.text = "蓝图工坊"
+	$LeftDrawer/Panel/Margin/VBox/HeaderLabel.text = "设计与部件"
+	UI.label($LeftDrawer/Panel/Margin/VBox/HeaderLabel, 17, UI.GOLD, true)
+	UI.label($RightDrawer/Panel/Margin/VBox/MatHeader, 16, UI.GOLD, true)
+	UI.label($RightDrawer/Panel/Margin/VBox/SizeHeader, 15, Color("c9d9d2"))
+	UI.label($RightDrawer/Panel/Margin/VBox/ToolHeader, 15, Color("c9d9d2"))
+	$RotateGizmo/BallArea/Disc.add_theme_stylebox_override("panel", UI.box(Color("1c3741"), Color("5d7b7c"), 55, Vector2.ZERO))
+	for toggle in [left_toggle_btn, right_toggle_btn]:
+		for state in ["normal", "hover", "pressed"]:
+			toggle.add_theme_stylebox_override(state, UI.box(UI.SURFACE, Color("496970"), 8, Vector2(4, 4)))
+		for state in ["font_color", "font_hover_color", "font_pressed_color"]:
+			toggle.add_theme_color_override(state, UI.LIGHT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_setup_preview()
 	_setup_ui_events()
@@ -153,6 +171,13 @@ func _ready() -> void:
 	_setup_editor()
 	_build_category_buttons()
 	_bind_palette_buttons()
+	UI.button(save_btn, "primary", true)
+	UI.button(craft_btn, "secondary", true)
+	UI.button(new_design_btn, "secondary", true)
+	UI.dialog(%UnsavedDialog)
+	visibility_changed.connect(func():
+		preview_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if visible else SubViewport.UPDATE_DISABLED
+	)
 	set_process(true)
 	visible = false
 
@@ -199,6 +224,7 @@ func open(value: RefCounted) -> void:
 	var category_to_select: String = str(blueprint.category) if (blueprint != null and str(blueprint.category) in CATEGORIES) else "头部装备"
 	_select_category(category_to_select, true)
 	visible = true
+	UI.reveal($TopBar)
 	_refresh_library()
 	_refresh_crafting()
 
@@ -347,7 +373,7 @@ func _setup_preview() -> void:
 	if initial_size.x <= 50 or initial_size.y <= 50:
 		initial_size = Vector2i(1280, 800)
 	preview_viewport.size = initial_size
-	preview_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	preview_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	# 启用透明背景，使 3D 人物与展台完美悬浮于沉稳雅致的聚光灯暗调背景之上
 	preview_viewport.transparent_bg = true
 	preview_viewport.world_3d = World3D.new()
@@ -644,7 +670,7 @@ func _setup_ui_events() -> void:
 	gizmo_left.pressed.connect(func(): _rotate_gizmo(PI * 0.25, 0.0))
 	gizmo_right.pressed.connect(func(): _rotate_gizmo(-PI * 0.25, 0.0))
 	for button in [gizmo_up, gizmo_down, gizmo_left, gizmo_right]:
-		button.add_theme_color_override("font_color", Color("#3d2e1e"))
+		button.add_theme_color_override("font_color", UI.LIGHT)
 	reset_btn.pressed.connect(_reset_camera_pose)
 	gizmo_disc.gui_input.connect(_gizmo_disc_input)
 	ball_canvas.draw.connect(_draw_ball_gizmo)
@@ -726,8 +752,9 @@ func _update_size_buttons() -> void:
 		var btn: Button = buttons[s_val]
 		if btn != null:
 			var is_active: bool = (current_voxel_size == int(s_val))
-			btn.modulate = Color(1.0, 1.0, 1.0) if is_active else Color(0.72, 0.72, 0.72)
-			btn.add_theme_color_override("font_color", Color("#d48822") if is_active else Color("#3d525c"))
+			btn.modulate = Color.WHITE
+			btn.add_theme_stylebox_override("normal", theme.get_stylebox("pressed" if is_active else "normal", "Button"))
+			btn.add_theme_color_override("font_color", UI.GOLD if is_active else UI.LIGHT)
 
 
 func _rotate_gizmo(yaw_delta: float, pitch_delta: float) -> void:
@@ -901,10 +928,13 @@ func _refresh_palette_highlight() -> void:
 			var is_active := (i + 1 == selected_material and not erase_mode)
 			btn.modulate = Color.WHITE
 			var style: StyleBoxFlat = theme.get_stylebox("normal", "Button").duplicate()
-			style.bg_color = MATERIAL_COLORS[i].lerp(Color("#faf1db"), 0.72)
-			style.border_color = Color("#8b5b19") if is_active else MATERIAL_COLORS[i].darkened(0.28)
-			style.set_border_width_all(3 if is_active else 1)
+			style.bg_color = MATERIAL_COLORS[i].lerp(Color("edf1e5"), 0.74)
+			style.border_color = UI.GOLD if is_active else MATERIAL_COLORS[i].darkened(0.28)
+			style.set_border_width_all(2 if is_active else 1)
 			btn.add_theme_stylebox_override("normal", style)
+			btn.add_theme_stylebox_override("hover", UI.box(style.bg_color.lightened(0.08), UI.GOLD, 8))
+			btn.add_theme_color_override("font_hover_color", UI.INK)
+			btn.add_theme_color_override("font_pressed_color", UI.INK)
 
 
 # -----------------------------------------------------------------------------
@@ -1839,6 +1869,7 @@ func _setup_editor() -> void:
 	inspector = InspectorScene.instantiate()
 	var controls := $RightDrawer/Panel/Margin/Stack/Scroll/VBox
 	controls.add_child(inspector)
+	UI.apply(inspector, true)
 	controls.move_child(inspector, 0)
 	inspector.parameters_changed.connect(_brush_changed)
 	inspector.action_requested.connect(_editor_action)
@@ -2045,7 +2076,9 @@ func _set_editor_mode(mode: String) -> void:
 	if mode == "add" and edit_session.blueprint != null:
 		edit_session.select([])
 	for item in [["Add", "add"], ["Select", "select"], ["Paint", "paint"], ["Erase", "erase"]]:
-		get_node("EditorToolbar/" + str(item[0])).modulate = Color("f5d28c") if mode == item[1] else Color.WHITE
+		var button: Button = get_node("EditorToolbar/" + str(item[0]))
+		button.add_theme_stylebox_override("normal", theme.get_stylebox("pressed" if mode == item[1] else "normal", "Button"))
+		button.add_theme_color_override("font_color", UI.GOLD if mode == item[1] else UI.LIGHT)
 	if hover_indicator != null:
 		hover_indicator.visible = false
 

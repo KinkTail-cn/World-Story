@@ -7,6 +7,7 @@ signal item_focused(item: Dictionary)
 const ItemCatalog = preload("res://scripts/inventory/ItemCatalog.gd")
 const ItemDisplay3D = preload("res://scripts/ui/ItemDisplay3D.gd")
 const ItemTooltip = preload("res://scripts/ui/ItemTooltip.gd")
+const UI = preload("res://scripts/ui/UIStyle.gd")
 
 var item_id: int = 0
 var model: RefCounted
@@ -24,7 +25,7 @@ var _display3d: Node3D
 func _ready() -> void:
 	custom_minimum_size = Vector2(72, 76)
 	background.set_border_width_all(1.5)
-	background.set_corner_radius_all(10)
+	background.set_corner_radius_all(8)
 	mouse_entered.connect(_on_creative_mouse_entered)
 	mouse_exited.connect(_on_creative_mouse_exited)
 	_setup_3d_viewport()
@@ -119,14 +120,14 @@ func refresh() -> void:
 
 func _draw() -> void:
 	if hovered:
-		background.bg_color = Color("#263c47")
-		background.border_color = Color("#d5b37b")
+		background.bg_color = Color("2c4b55")
+		background.border_color = UI.GOLD
 		background.set_border_width_all(2.0)
 		background.shadow_color = Color(1.0, 0.8, 0.3, 0.45)
 		background.shadow_size = 0
 	else:
-		background.bg_color = Color("#18242d")
-		background.border_color = Color("#425560")
+		background.bg_color = Color("152d36")
+		background.border_color = Color("3d5760")
 		background.set_border_width_all(1.5)
 		background.shadow_color = Color(0, 0, 0, 0.45)
 		background.shadow_size = 0
@@ -137,7 +138,7 @@ func _draw() -> void:
 		
 	var title: String = ItemCatalog.title(item_id)
 	var font := get_theme_default_font()
-	var font_size: int = 12
+	var font_size: int = 13
 	var title_width: float = font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
 	if title_width > size.x - 8 and font_size > 10:
 		font_size = 11

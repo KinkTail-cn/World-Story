@@ -48,9 +48,13 @@ func _run() -> void:
 		settings.visible = false
 		await frames()
 		fits(menu.get_node("Center/Card"), "Main menu fits")
+		if dimensions == Vector2i(1280, 800):
+			await capture("title")
 		menu._open_mode_popup()
 		await frames()
 		fits(menu.get_node("ModePopup/Card"), "World creation choices fit")
+		if dimensions == Vector2i(1280, 800):
+			await capture("world-creation")
 		menu._close_mode_popup()
 		menu.show_error("无法读取存档，请检查存档备份。".repeat(5))
 		await frames()
@@ -61,25 +65,36 @@ func _run() -> void:
 		await frames()
 		fits(settings.get_node("Center/Card"), "Settings fit")
 		fits(settings.get_node("Center/Card/Body/Buttons/Apply"), "Settings save button is reachable")
+		if dimensions == Vector2i(1280, 800):
+			await capture("settings")
 		settings.close()
 		loading.visible = true
+		loading.update_progress(0.64, "准备海岸与树林…")
 		await frames()
 		fits(loading.get_node("Center/Card"), "Loading progress and tips fit")
+		if dimensions == Vector2i(1280, 800):
+			await capture("loading")
 		loading.visible = false
 		hud.visible = true
 		await frames()
 		fits(hud.get_node("Root/Bottom"), "All eight hotbar slots and help fit")
-		fits(hud.get_node("Root/TopLeftPanel"), "Left HUD badge fits")
-		fits(hud.get_node("Root/TopRightPanel"), "Right HUD badge fits")
-		check(not hud.get_node("Root/TopLeftPanel").get_global_rect().intersects(hud.get_node("Root/TopRightPanel").get_global_rect()), "HUD badges do not overlap")
+		check(not hud.get_node("Root/TopLeftPanel").is_visible_in_tree(), "Left corner information remains removed")
+		check(not hud.get_node("Root/TopRightPanel").is_visible_in_tree(), "Right corner instructions remain removed")
+		check(not hud.target.is_visible_in_tree() and not hud.get_node("Root/Bottom/Help").is_visible_in_tree() and not hud.get_node("Root/Bottom/Selected").is_visible_in_tree(), "Resizing does not restore gameplay text hints")
+		if dimensions == Vector2i(1280, 800):
+			await capture("hud")
 		hud.set_paused(true)
 		await frames()
 		fits(hud.get_node("Root/Pause/Panel"), "Pause actions fit")
+		if dimensions in [Vector2i(800, 500), Vector2i(1280, 800)]:
+			await capture("pause-" + str(dimensions.x))
 		hud.set_paused(false)
 		hud.function_wheel.open(0, false)
 		await frames()
 		var wheel = hud.function_wheel
 		check(wheel.center.y + wheel.radius + 84.0 <= wheel.size.y, "Function wheel and confirmation hint fit")
+		if dimensions == Vector2i(1280, 800):
+			await capture("actions")
 		wheel.close()
 		hud.inventory_panel.open()
 		await frames()
@@ -91,6 +106,8 @@ func _run() -> void:
 			await frames()
 			fits(hud.inventory_panel.hotbar_grid, "Pinned bag hotbar fits")
 			fits(hud.inventory_panel.creative_section if creative else hud.inventory_panel.craft_section, "Library or crafting controls fit")
+			if dimensions == Vector2i(1280, 800):
+				await capture("inventory" if creative else "crafting")
 		hud.inventory_panel.close()
 		hud.notebook_panel.open(game.blueprint_manager)
 		await frames()
@@ -98,6 +115,8 @@ func _run() -> void:
 		fits(hud.notebook_panel.get_node("Card/Body/Actions/Save"), "Notebook save action fits")
 		if dimensions == Vector2i(800, 500):
 			await capture("notebook-small")
+		if dimensions == Vector2i(1280, 800):
+			await capture("notebook")
 		hud.notebook_panel.close()
 		var editor = hud.blueprint_workshop
 		editor.open(game.blueprint_manager)
@@ -114,6 +133,8 @@ func _run() -> void:
 		hud.item_tooltip.display_item(108, Vector2(dimensions) - Vector2(8, 8), {"custom_name": "很长的自定义笔记本名称".repeat(8)})
 		await frames()
 		fits(hud.item_tooltip.get_node("TooltipCard"), "Long item names and edge tooltips fit")
+		if dimensions == Vector2i(1280, 800):
+			await capture("tooltip")
 		hud.item_tooltip.dismiss()
 	var editor = hud.blueprint_workshop
 	editor.open(game.blueprint_manager)
@@ -181,5 +202,6 @@ func click(control: Control) -> void:
 
 func capture(tag: String) -> void:
 	if "--capture" in OS.get_cmdline_user_args():
+		await create_timer(0.22).timeout
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png("C:/Users/Qi/AppData/Local/Temp/opencode/world-story-interface-" + tag + ".png")

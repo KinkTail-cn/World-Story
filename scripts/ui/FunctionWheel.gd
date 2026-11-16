@@ -1,5 +1,7 @@
 extends Control
 
+const UI = preload("res://scripts/ui/UIStyle.gd")
+
 signal function_selected(index: int)
 signal cancel_requested
 
@@ -13,6 +15,7 @@ var radius: float = 180.0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	theme = UI.theme(true)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
 	resized.connect(func(): center = size * 0.5; queue_redraw())
@@ -86,15 +89,15 @@ func _draw() -> void:
 		var start := PI * 0.5 - i * sector_angle + 0.025
 		var end := start + sector_angle - 0.05
 		var is_hovered := (i == hovered_index)
-		var fill_color := Color("fae4ab") if is_hovered else Color("eef4ec")
+		var fill_color := Color("2d5960") if is_hovered else UI.NAVY
 		
 		# 绘制扇区底板
 		_draw_sector(center, 88.0, radius, start, end, fill_color)
 		
 		# 悬停时外圈金光弧描边
 		if is_hovered:
-			draw_arc(center, radius + 1.0, start, end, 32, Color("e8a838"), 3.0, true)
-			draw_arc(center, 87.0, start, end, 32, Color("e8a838"), 2.0, true)
+			draw_arc(center, radius + 1.0, start, end, 32, UI.GOLD, 2.0, true)
+			draw_arc(center, 87.0, start, end, 32, UI.GOLD, 1.0, true)
 		else:
 			draw_arc(center, radius, start, end, 32, Color("769299", 0.5), 1.2, true)
 			draw_arc(center, 88.0, start, end, 32, Color("769299", 0.5), 1.2, true)
@@ -107,7 +110,7 @@ func _draw() -> void:
 		
 		# 标题阴影与文字
 		draw_string(font, label_position + Vector2(-label_width * 0.5, 33), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(0, 0, 0, 0.15))
-		draw_string(font, label_position + Vector2(-label_width * 0.5, 32), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("1e3840") if is_hovered else Color("2c4d57"))
+		draw_string(font, label_position + Vector2(-label_width * 0.5, 32), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, UI.LIGHT)
 		
 		# 绘制动作图标
 		_draw_icon(label_position + Vector2(0, -10), i, is_hovered)
@@ -120,17 +123,17 @@ func _draw() -> void:
 	# 中心罗盘枢纽
 	draw_circle(center, 82.0, Color(0, 0, 0, 0.2)) # 柔和阴影
 	draw_circle(center, 80.0, Color("203b44"))
-	draw_circle(center, 76.0, Color("e8a838"))
-	draw_circle(center, 74.0, Color("f4f8f2"))
+	draw_circle(center, 76.0, Color("638382"))
+	draw_circle(center, 75.0, UI.NAVY)
 	
 	var font := get_theme_default_font()
 	var title := "角色动作"
 	var title_width := font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
-	draw_string(font, center + Vector2(-title_width * 0.5, -4), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color("1a353d"))
+	draw_string(font, center + Vector2(-title_width * 0.5, -4), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, UI.LIGHT)
 	
 	var current: String = "当前：坐下" if active_index == 1 else "当前：拆建"
 	var current_width: float = font.get_string_size(current, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
-	draw_string(font, center + Vector2(-current_width * 0.5, 22), current, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("627d82"))
+	draw_string(font, center + Vector2(-current_width * 0.5, 22), current, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("b0c7bf"))
 	
 	# 底部操作提示胶囊
 	var sub := "鼠标移动选择 · 单击左键确认 · 按 G / ESC 取消"
@@ -149,7 +152,7 @@ func _draw_sector(origin: Vector2, inner: float, outer: float, start: float, end
 	draw_colored_polygon(points, color)
 
 func _draw_icon(origin: Vector2, index: int, highlighted: bool) -> void:
-	var color: Color = Color("234b54") if highlighted else Color("527c82")
+	var color: Color = UI.GOLD if highlighted else Color("a0bdb8")
 	if index == 0:
 		# 镐头与建造手柄
 		draw_line(origin + Vector2(-15, 18), origin + Vector2(11, -15), color, 5.0, true)

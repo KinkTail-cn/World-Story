@@ -40,6 +40,12 @@ func _run() -> void:
 	await frames()
 	check(not paused and not hud.any_modal_visible(), "K no longer opens a character editor")
 	check(game.inventory.count_item(3) == 0 and game.inventory.bag.size() == 24, "Survival keeps its normal empty bag and resource rules")
+	check(not hud.get_node("Root/TopLeftPanel").visible and not hud.get_node("Root/TopRightPanel").visible, "Gameplay omits corner information and shortcut text")
+	check(not hud.target.visible and not hud.get_node("Root/Bottom/Help").visible and not hud.get_node("Root/Bottom/Selected").visible, "Gameplay omits aim, held-item and keyboard instructions")
+	hud.show_message("世界进度已保存")
+	await frames()
+	check(not hud.toast.visible and not hud.vitals_label.visible, "Routine save feedback and text status stay off the world view")
+	check(hud.slots.is_visible_in_tree() and hud.health_bar.is_visible_in_tree(), "Hotbar and visual survival status remain available")
 	await capture("survival")
 	var old_content := root.content_scale_size
 	root.content_scale_size = Vector2i.ZERO
@@ -50,7 +56,7 @@ func _run() -> void:
 		check(paused and hud.pause_panel.visible, "Physical Escape pauses the sandbox")
 		check(find_button(hud.pause_panel, "人物创造器  K") == null, "Pause menu contains only the current sandbox actions")
 		fits(hud.get_node("Root/Pause/Panel"), "All pause actions fit")
-		fits(hud.vitals_label, "Vital signs fit")
+		fits(hud.vitals_panel, "Visual vital signs fit")
 		if dimensions.x == 800:
 			await capture("pause-small")
 		click(find_button(hud.pause_panel, "游戏设置"))

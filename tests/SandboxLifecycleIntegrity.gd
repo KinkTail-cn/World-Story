@@ -54,6 +54,7 @@ func _run() -> void:
 	check(saves.has_save() and saves.load_world().ok, "Interval autosave writes a validated world")
 	var blocked = Saves.new("user://missing_sandbox_directory/save.json")
 	game.save_system = blocked
+	check(not game.save_progress() and paused and game.hud.pause_panel.visible, "A failed gameplay save opens the actionable pause status without a floating hint")
 	paused = true
 	game.hud.set_paused(true)
 	game._save_and_menu()

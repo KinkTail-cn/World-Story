@@ -11,6 +11,7 @@ const ItemCatalog = preload("res://scripts/inventory/ItemCatalog.gd")
 const ItemTooltip = preload("res://scripts/ui/ItemTooltip.gd")
 const Character = preload("res://scripts/player/CharacterVisual.gd")
 const EquipmentSets = preload("res://scripts/content/EquipmentSets.gd")
+const UI = preload("res://scripts/ui/UIStyle.gd")
 const CARD_SIZE := Vector2(1320, 780)
 const BLOCKS_LIST: Array[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 const EQUIP_LIST: Array[int] = EquipmentSets.ALL_IDS
@@ -56,6 +57,19 @@ var preview_camera: Camera3D
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	UI.apply(self, true)
+	UI.panel($Card, true, Vector2.ZERO)
+	UI.label($Card/Header/Titles/Title, 28, UI.LIGHT, true)
+	UI.label($Card/Header/Titles/Subtitle, 14, Color("a1b8b8"))
+	UI.label(%Mode, 14, UI.GOLD)
+	UI.label(%Capacity, 14, Color("abc3c0"))
+	UI.label(%ItemName, 16, UI.GOLD, true)
+	UI.label(%ItemHint, 14, Color("b5c8c8"))
+	UI.label(%Feedback, 14, UI.GOLD)
+	UI.button(%TakeResult, "primary", true)
+	UI.button(%WearSet, "primary", true)
+	$Dim.add_theme_stylebox_override("panel", UI.box(UI.SHADE, Color.TRANSPARENT, 0, Vector2.ZERO))
+	$Card/Columns/BagSection/Content/Selection.add_theme_stylebox_override("panel", UI.box(Color("142d36"), Color("3c5660"), 10, Vector2(14, 12)))
 	visible = false
 	_collect_slots(self)
 	_reindex_bag()
@@ -143,6 +157,7 @@ func open() -> void:
 	visible = true
 	_layout_card()
 	_refresh()
+	UI.reveal(card)
 
 func close() -> void:
 	search.release_focus()

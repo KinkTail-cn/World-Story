@@ -1,6 +1,7 @@
 extends Control
 
 const Layout = preload("res://scripts/ui/ResponsiveLayout.gd")
+const UI = preload("res://scripts/ui/UIStyle.gd")
 
 signal new_game(mode: String)
 signal continue_game
@@ -16,16 +17,34 @@ var selected_world_type: String = "infinite"
 var save_system
 var replace_confirmation: ConfirmationDialog
 
-var motes_particles: Array[Dictionary] = []
-var anim_time: float = 0.0
-
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	UI.apply(self, true)
+	$Center/Card.add_theme_stylebox_override("panel", UI.box(Color.TRANSPARENT, Color.TRANSPARENT, 0, Vector2.ZERO))
+	UI.label($Center/Card/Body/Title, 64, UI.LIGHT, true)
+	UI.label($Center/Card/Body/Eyebrow, 14, UI.GOLD)
+	UI.label($Center/Card/Body/Subtitle, 18, Color("d2dfdb"))
+	UI.label($Wordmark, 13, Color("d8e5df"))
+	UI.label($Footer, 13, Color("afc5c4"))
+	UI.label($SceneCaption, 15, Color("e2ede3"))
+	UI.label($Center/Card/Body/Error, 14, UI.ERROR)
+	UI.apply($ModePopup, false)
+	UI.panel($ModePopup/Card, false, Vector2(32, 26))
+	UI.label($ModePopup/Card/Body/Title, 30, UI.INK, true)
+	for key in ["Description", "ModeDescription", "WorldDescription"]:
+		UI.label(get_node("ModePopup/Card/Body/" + key), 14, UI.MUTED)
+	UI.label($ModePopup/Card/Body/Eyebrow, 12, UI.TEAL)
+	UI.button($ModePopup/Card/Body/Start, "primary")
+	$ModePopup/Card/Body/Start.text = "创建世界"
+	$ModePopup/Card/Body/Start.icon = UI.icon("forward")
+	$ModePopup/Card/Body/Start.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	continue_button.visible = _has_save()
-	mode_box.add_item("创造模式：无限建材，自由建造与蓝图设计")
-	mode_box.add_item("生存模式：有限背包，需要采集和消耗")
-	world_type_box.add_item("真实无限大世界（无限地图 · 广袤大陆与连绵群岛）")
-	world_type_box.add_item("晴风群岛（经典有限地图 · 原版精巧岛屿）")
+	mode_box.add_item("创造模式  ·  自由建造")
+	mode_box.add_item("生存模式  ·  采集与制作")
+	world_type_box.add_item("无限世界  ·  大陆与群岛")
+	world_type_box.add_item("晴风岛  ·  经典岛屿")
+	mode_box.item_selected.connect(_describe_choices)
+	world_type_box.item_selected.connect(_describe_choices)
 	$Center/Card/Body/Buttons/NewGame.pressed.connect(_open_mode_popup)
 	continue_button.pressed.connect(func(): continue_game.emit())
 	$Center/Card/Body/Buttons/Settings.pressed.connect(func(): settings_requested.emit())
@@ -36,51 +55,40 @@ func _ready() -> void:
 	resized.connect(_layout)
 	$Center/Card.minimum_size_changed.connect(_layout.call_deferred)
 	$ModePopup/Card.minimum_size_changed.connect(_layout.call_deferred)
+	_style_actions()
 	_layout.call_deferred()
-	
-	# 初始化漂浮神圣萤火光斑
-	for i in range(24):
-		motes_particles.append({
-			"pos": Vector2(randf() * 1280.0, randf() * 720.0),
-			"speed": randf_range(12.0, 26.0),
-			"radius": randf_range(2.0, 4.0),
-			"phase": randf() * TAU,
-			"color": Color("#fce488") if randf() > 0.3 else Color("#9efba4")
-		})
-	set_process(true)
+	UI.reveal($Center/Card)
 
 func _layout() -> void:
 	if not is_node_ready():
 		return
-	Layout.fit_centered($Center/Card, size, Vector2(560, 0))
-	Layout.fit_centered($ModePopup/Card, size, Vector2(560, 460))
+	Layout.fit_centered($Center/Card, size, Vector2(392, 0), 64)
+	$Center/Card.position.x = clampf(size.x * 0.055, 32.0, 88.0)
+	Layout.fit_centered($ModePopup/Card, size, Vector2(580, 0), 24)
+	$Wordmark.position.x = $Center/Card.position.x
+	$Footer.position.x = $Center/Card.position.x
+	$SceneCaption.visible = size.x >= 1000
 
+func _style_actions() -> void:
+	for button in $Center/Card/Body/Buttons.get_children():
+		UI.button(button, "primary" if (button == continue_button and continue_button.visible) or (button.name == "NewGame" and not continue_button.visible) else "secondary")
+		button.focus_mode = Control.FOCUS_ALL
+	continue_button.text = "继续游戏"
+	continue_button.icon = UI.icon("forward")
+	continue_button.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	$Center/Card/Body/Buttons/NewGame.text = "创建新世界"
+	$Center/Card/Body/Buttons/NewGame.icon = UI.icon("plus")
+	$Center/Card/Body/Buttons/NewGame.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 
-func _process(delta: float) -> void:
-	anim_time += delta
-	var vp_size := get_viewport_rect().size
-	for p in motes_particles:
-		p.pos.y -= p.speed * delta
-		p.pos.x += sin(anim_time * 1.4 + p.phase) * 10.0 * delta
-		if p.pos.y < -10:
-			p.pos.y = vp_size.y + 10
-			p.pos.x = randf() * vp_size.x
-	queue_redraw()
-
-
-func _draw() -> void:
-	# 绘制漂浮在羊皮卷轴背景上的金色与微翠荧光光尘
-	for p in motes_particles:
-		var alpha: float = 0.4 + 0.4 * sin(anim_time * 2.2 + p.phase)
-		var c: Color = p.color
-		c.a = alpha
-		draw_circle(p.pos, p.radius, c)
-		draw_circle(p.pos, p.radius * 0.45, Color(1, 1, 1, alpha * 0.85))
+func _describe_choices(_index: int = 0) -> void:
+	$ModePopup/Card/Body/ModeDescription.text = "采集材料、制作工具，留意生命与潜水空气。" if mode_box.selected == 1 else "无限建材，专心建造与设计，尽情实现你的灵感。"
+	$ModePopup/Card/Body/WorldDescription.text = "一座适合专心建造的有限岛屿，有海岸、树林与小屋。" if world_type_box.selected == 1 else "从晴风岛出发，探索不断延伸的大陆与群岛。"
 
 func refresh() -> void:
 	continue_button.visible = _has_save()
 	mode_popup.visible = false
 	$Center/Card/Body/Error.visible = false
+	_style_actions()
 
 func show_error(text: String) -> void:
 	var label: Label = $Center/Card/Body/Error
@@ -89,9 +97,16 @@ func show_error(text: String) -> void:
 
 func _open_mode_popup() -> void:
 	mode_popup.visible = true
+	for button in $Center/Card/Body/Buttons.get_children():
+		button.focus_mode = Control.FOCUS_NONE
+	_describe_choices()
+	UI.reveal($ModePopup/Card)
+	mode_box.grab_focus()
 
 func _close_mode_popup() -> void:
 	mode_popup.visible = false
+	_style_actions()
+	$Center/Card/Body/Buttons/NewGame.grab_focus()
 
 func _start_selected_mode() -> void:
 	if _has_save():
@@ -103,6 +118,7 @@ func _start_selected_mode() -> void:
 			replace_confirmation.cancel_button_text = "保留当前世界"
 			replace_confirmation.confirmed.connect(_launch_selected_mode)
 			add_child(replace_confirmation)
+			UI.dialog(replace_confirmation)
 		replace_confirmation.popup_centered()
 		return
 	_launch_selected_mode()

@@ -1,67 +1,6 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=2 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/LoadingScreen.gd" id="1"]
-
-[sub_resource type="Gradient" id="LoadingGradient"]
-offsets = PackedFloat32Array(0, 0.5, 1)
-colors = PackedColorArray(0.16, 0.23, 0.32, 1, 0.11, 0.16, 0.22, 1, 0.06, 0.08, 0.11, 1)
-
-[sub_resource type="GradientTexture2D" id="LoadingBackdropTex"]
-gradient = SubResource("LoadingGradient")
-fill = 1
-fill_from = Vector2(0.5, 0.48)
-fill_to = Vector2(0.95, 0.95)
-
-[sub_resource type="StyleBoxFlat" id="CardPanel"]
-bg_color = Color(0.95, 0.91, 0.83, 0.98)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.68, 0.50, 0.28, 1)
-corner_radius_top_left = 18
-corner_radius_top_right = 18
-corner_radius_bottom_right = 18
-corner_radius_bottom_left = 18
-shadow_color = Color(0.08, 0.05, 0.02, 0.45)
-shadow_size = 16
-
-[sub_resource type="StyleBoxFlat" id="ProgressBack"]
-bg_color = Color(0.24, 0.16, 0.10, 0.92)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.58, 0.42, 0.24, 0.85)
-corner_radius_top_left = 10
-corner_radius_top_right = 10
-corner_radius_bottom_right = 10
-corner_radius_bottom_left = 10
-
-[sub_resource type="StyleBoxFlat" id="ProgressFill"]
-bg_color = Color(0.88, 0.65, 0.22, 1)
-border_width_top = 1
-border_width_bottom = 1
-border_color = Color(1, 0.85, 0.45, 0.9)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
-
-[sub_resource type="StyleBoxFlat" id="TipPanel"]
-bg_color = Color(0.88, 0.82, 0.70, 0.75)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.72, 0.58, 0.40, 0.6)
-corner_radius_top_left = 10
-corner_radius_top_right = 10
-corner_radius_bottom_right = 10
-corner_radius_bottom_left = 10
-
-[sub_resource type="Theme" id="Theme_Main"]
-Label/colors/font_color = Color(0.25, 0.16, 0.10, 1)
 
 [node name="LoadingScreen" type="Control"]
 process_mode = 3
@@ -70,30 +9,21 @@ layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 0
-theme = SubResource("Theme_Main")
 script = ExtResource("1")
 
-[node name="Backdrop" type="TextureRect" parent="."]
+[node name="Backdrop" type="ColorRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
 mouse_filter = 2
-texture = SubResource("LoadingBackdropTex")
-expand_mode = 1
+color = Color(0.055, 0.13, 0.17, 1)
 
 [node name="ParticlesCanvas" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
 mouse_filter = 2
 
 [node name="Center" type="Control" parent="."]
@@ -101,94 +31,53 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+mouse_filter = 2
 
 [node name="Card" type="PanelContainer" parent="Center"]
-custom_minimum_size = Vector2(640, 360)
-layout_mode = 2
-theme_override_styles/panel = SubResource("CardPanel")
+offset_right = 680.0
+offset_bottom = 380.0
 
 [node name="Margin" type="MarginContainer" parent="Center/Card"]
-layout_mode = 2
-theme_override_constants/margin_left = 40
-theme_override_constants/margin_top = 32
-theme_override_constants/margin_right = 40
-theme_override_constants/margin_bottom = 32
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 28
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 28
 
 [node name="VBox" type="VBoxContainer" parent="Center/Card/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 22
-alignment = 1
+theme_override_constants/separation = 28
 
 [node name="Header" type="VBoxContainer" parent="Center/Card/Margin/VBox"]
-layout_mode = 2
-theme_override_constants/separation = 6
-alignment = 1
-
+theme_override_constants/separation = 10
+[node name="Wordmark" type="Label" parent="Center/Card/Margin/VBox/Header"]
+text = "W O R L D   S T O R Y"
 [node name="Title" type="Label" parent="Center/Card/Margin/VBox/Header"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.35, 0.22, 0.12, 1)
-theme_override_colors/font_shadow_color = Color(0.85, 0.70, 0.45, 0.6)
-theme_override_constants/shadow_offset_x = 1
-theme_override_constants/shadow_offset_y = 1
-theme_override_font_sizes/font_size = 30
-text = "世界物语 · WORLD STORY"
-horizontal_alignment = 1
-
+theme_override_font_sizes/font_size = 34
+text = "下一处风景，即将展开。"
 [node name="SubTitle" type="Label" parent="Center/Card/Margin/VBox/Header"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.52, 0.38, 0.24, 1)
-theme_override_font_sizes/font_size = 14
-text = "正在构筑广袤的体素大世界，编织连绵群岛与壮丽山海……"
-horizontal_alignment = 1
+text = "正在准备你的世界"
 
 [node name="ProgressSection" type="VBoxContainer" parent="Center/Card/Margin/VBox"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
+theme_override_constants/separation = 12
 [node name="ProgressBar" type="ProgressBar" parent="Center/Card/Margin/VBox/ProgressSection"]
-custom_minimum_size = Vector2(0, 18)
-layout_mode = 2
-theme_override_styles/background = SubResource("ProgressBack")
-theme_override_styles/fill = SubResource("ProgressFill")
+custom_minimum_size = Vector2(0, 6)
 max_value = 100.0
-step = 0.5
-value = 15.0
+step = 0.1
 show_percentage = false
-
 [node name="InfoRow" type="HBoxContainer" parent="Center/Card/Margin/VBox/ProgressSection"]
-layout_mode = 2
-
 [node name="Status" type="Label" parent="Center/Card/Margin/VBox/ProgressSection/InfoRow"]
-layout_mode = 2
 size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.40, 0.28, 0.16, 1)
-theme_override_font_sizes/font_size = 13
-text = "正在初始化世界种子与噪声地形..."
-
+clip_text = true
+text = "准备地形与海岸…"
 [node name="Percent" type="Label" parent="Center/Card/Margin/VBox/ProgressSection/InfoRow"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.78, 0.52, 0.18, 1)
-theme_override_font_sizes/font_size = 14
-text = "15%"
-horizontal_alignment = 2
+text = "0%"
 
 [node name="TipPanel" type="PanelContainer" parent="Center/Card/Margin/VBox"]
-layout_mode = 2
-theme_override_styles/panel = SubResource("TipPanel")
-
 [node name="TipMargin" type="MarginContainer" parent="Center/Card/Margin/VBox/TipPanel"]
-layout_mode = 2
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 12
-theme_override_constants/margin_right = 16
-theme_override_constants/margin_bottom = 12
-
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 4
+theme_override_constants/margin_bottom = 4
 [node name="TipLabel" type="Label" parent="Center/Card/Margin/VBox/TipPanel/TipMargin"]
-custom_minimum_size = Vector2(480, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.38, 0.26, 0.15, 1)
-theme_override_font_sizes/font_size = 13
-text = "💡 旅行贴士：采集原木与泥土，可以建造第一座庇护所抵御风雨。"
-autowrap_mode = 2
+custom_minimum_size = Vector2(460, 0)
+autowrap_mode = 3
+text = "探索小贴士"

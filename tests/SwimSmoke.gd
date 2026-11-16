@@ -119,8 +119,11 @@ func _run() -> void:
 		for frame in range(15):
 			await physics_frame
 		assert(main.get_node("HUD/Root/Underwater").visible, "Underwater camera must enable the tint")
-		assert(main.get_node("HUD/Root/TopRight/Depth").visible, "Diving must show depth")
+		assert(not main.get_node("HUD/Root/TopRight/Depth").is_visible_in_tree(), "Diving keeps the world view free of depth instructions")
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png("C:/Users/Qi/AppData/Local/Temp/opencode/world-story-diving.png")
+	main.queue_free()
+	for frame in range(4):
+		await process_frame
 	print("SWIM_SMOKE_PASS: beach entry, offshore movement, buoyancy, dive, hover, look direction, ascent, ocean range, seabed, first-person diving, return to shore")
 	quit(0)

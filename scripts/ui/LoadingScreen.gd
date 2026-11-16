@@ -1,6 +1,7 @@
 extends Control
 
 const Layout = preload("res://scripts/ui/ResponsiveLayout.gd")
+const UI = preload("res://scripts/ui/UIStyle.gd")
 
 # 加载完全完成并淡出后的信号通知
 signal loading_completed
@@ -43,10 +44,18 @@ func start_loading() -> void:
 	current_value = 0.0
 	progress_bar.value = 0.0
 	percent_label.text = "0%"
+	tip_label.text = TIPS[randi() % TIPS.size()].replace("💡 操作贴士：", "操作提示  /  ").replace("💡 旅行贴士：", "探索提示  /  ")
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	UI.apply(self, true)
+	$Center/Card.add_theme_stylebox_override("panel", UI.box(Color.TRANSPARENT, Color.TRANSPARENT, 0, Vector2.ZERO))
+	UI.label($Center/Card/Margin/VBox/Header/Title, 32, UI.LIGHT, true)
+	UI.label($Center/Card/Margin/VBox/Header/Wordmark, 13, UI.GOLD)
+	UI.label($Center/Card/Margin/VBox/Header/SubTitle, 15, Color("a8c0c1"))
+	UI.label(tip_label, 14, Color("bacdca"))
+	UI.label(percent_label, 16, UI.GOLD)
 	visible = true
 	modulate.a = 1.0
 	progress_bar.value = 0.0
@@ -54,16 +63,15 @@ func _ready() -> void:
 	
 	# 随机精选一条旅行提示
 	randomize()
-	tip_label.text = TIPS[randi() % TIPS.size()]
+	tip_label.text = TIPS[randi() % TIPS.size()].replace("💡 操作贴士：", "操作提示  /  ").replace("💡 旅行贴士：", "探索提示  /  ")
 	
-	# 初始化金光荧火流动粒子
-	for i in range(20):
+	for i in range(12):
 		motes.append({
 			"pos": Vector2(randf() * 1280.0, randf() * 720.0),
 			"speed": randf_range(15.0, 32.0),
-			"radius": randf_range(1.8, 3.6),
+			"radius": randf_range(1.0, 2.0),
 			"phase": randf() * TAU,
-			"color": Color("#fce488") if randf() > 0.3 else Color("#9efba4")
+			"color": Color("91b3af")
 		})
 		
 	particles_canvas.draw.connect(_draw_particles)
@@ -74,10 +82,12 @@ func _ready() -> void:
 
 func _layout() -> void:
 	if is_node_ready():
-		Layout.fit_centered($Center/Card, size, Vector2(640, 360))
+		Layout.fit_centered($Center/Card, size, Vector2(680, 380))
 
 
 func _process(delta: float) -> void:
+	if not visible:
+		return
 	anim_time += delta
 	
 	# 进度平滑插值缓动
@@ -100,7 +110,7 @@ func _process(delta: float) -> void:
 
 func _draw_particles() -> void:
 	for p in motes:
-		var alpha: float = 0.35 + 0.35 * sin(anim_time * 2.0 + p.phase)
+		var alpha: float = 0.08 + 0.08 * sin(anim_time * 0.5 + p.phase)
 		var c: Color = p.color
 		c.a = alpha
 		particles_canvas.draw_circle(p.pos, p.radius, c)
@@ -124,7 +134,7 @@ func finish_loading() -> void:
 	current_value = 100.0
 	progress_bar.value = 100.0
 	percent_label.text = "100%"
-	status_label.text = "体素大世界构建完毕，即将启程！"
+	status_label.text = "世界已就绪"
 	
 	# 停留 0.15 秒让玩家感知加载完成，随后平滑淡出
 	await get_tree().create_timer(0.18).timeout

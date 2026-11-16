@@ -6,6 +6,7 @@ signal slot_selected(index: int)
 
 const ItemCatalog = preload("res://scripts/inventory/ItemCatalog.gd")
 const ItemTooltip = preload("res://scripts/ui/ItemTooltip.gd")
+const UI = preload("res://scripts/ui/UIStyle.gd")
 @export var group: String = "bag"
 @export var index: int = 0
 var model: RefCounted
@@ -24,7 +25,7 @@ var _display3d: Node3D
 
 func _ready() -> void:
 	background.set_border_width_all(1.5)
-	background.set_corner_radius_all(10)
+	background.set_corner_radius_all(8)
 	mouse_entered.connect(_on_slot_mouse_entered)
 	mouse_exited.connect(_on_slot_mouse_exited)
 	_setup_3d_viewport()
@@ -128,8 +129,8 @@ func refresh() -> void:
 		item_focused.emit(item)
 
 func _draw() -> void:
-	background.bg_color = Color("#263c47") if hovered else Color("#18242d")
-	background.border_color = Color("#d5b37b") if hovered or selected_hotbar else Color("#425560")
+	background.bg_color = Color("2c4b55") if hovered else Color("152d36")
+	background.border_color = UI.GOLD if hovered or selected_hotbar else Color("3d5760")
 	background.set_border_width_all(2 if hovered or selected_hotbar else 1)
 	background.shadow_size = 0
 	if get_viewport().gui_is_dragging():
@@ -156,7 +157,7 @@ func _draw() -> void:
 			draw_string(font, Vector2(17, size.y * 0.57), "成品" if group == "result" else "材料", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#8499a2"))
 		return
 	var title: String = str(item.custom_name) if item.has("custom_name") and not str(item.custom_name).is_empty() else ItemCatalog.title(item.id)
-	var font_size: int = 12
+	var font_size: int = 13
 	var title_width: float = font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
 	if title_width > size.x - 8 and font_size > 10:
 		font_size = 11

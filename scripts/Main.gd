@@ -177,8 +177,7 @@ func _process(delta: float) -> void:
 	autosave_time += delta
 	if autosave_time >= 120.0:
 		autosave_time = 0.0
-		if save_progress(true):
-			hud.get_node("Root/TopLeftPanel/Margin/TopLeft/Location").text = "自动保存完成 · F5 随时保存"
+		save_progress(true)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
@@ -224,6 +223,7 @@ func _confirm_restart() -> void:
 			if save_progress():
 				_restart())
 		hud.get_node("Root").add_child(restart_confirmation)
+		preload("res://scripts/ui/UIStyle.gd").dialog(restart_confirmation)
 	restart_confirmation.popup_centered()
 
 func _update_water_environment(_swimming: bool, _submerged: bool, underwater: bool, _depth: float) -> void:

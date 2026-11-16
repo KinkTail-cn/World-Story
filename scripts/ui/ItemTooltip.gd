@@ -1,9 +1,9 @@
 extends Control
 
-## 现代沉浸式动态悬浮物品介绍卡片（ItemTooltip）
-## 跟随鼠标平滑悬停与智能边界避障，呈现日系深木金边、品质着色、属性面板与背景故事
+## Player-facing item details; follows the pointer and stays within the viewport.
 
 const ItemCatalog = preload("res://scripts/inventory/ItemCatalog.gd")
+const UI = preload("res://scripts/ui/UIStyle.gd")
 
 static var instance: Control = null
 
@@ -26,6 +26,7 @@ var follow_mouse: bool = true
 
 func _ready() -> void:
 	instance = self
+	theme = UI.theme(true)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	z_index = 1000 # 确保处于最高层渲染
 	visible = false
@@ -48,17 +49,13 @@ func _build_ui() -> void:
 	_panel = PanelContainer.new()
 	_panel.name = "TooltipCard"
 	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_panel.custom_minimum_size = Vector2(260, 0)
+	_panel.custom_minimum_size = Vector2(300, 0)
 	add_child(_panel)
 	
-	# 日系深胡桃木与圆角烫金边框主题
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("#180f09", 0.96)
-	style.border_color = Color("#d8a44c")
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(10)
-	style.shadow_color = Color(0, 0, 0, 0.75)
-	style.shadow_size = 10
+	# Use the same dark surface as the inventory and workshop.
+	var style := UI.box(Color("142b34", 0.98), Color("58777b"), 12, Vector2(18, 16))
+	style.shadow_color = Color(0, 0, 0, 0.32)
+	style.shadow_size = 16
 	style.shadow_offset = Vector2(0, 4)
 	style.content_margin_left = 14.0
 	style.content_margin_top = 12.0
@@ -69,8 +66,8 @@ func _build_ui() -> void:
 	var vbox := VBoxContainer.new()
 	vbox.name = "CardLayout"
 	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.custom_minimum_size = Vector2(232, 0)
-	vbox.add_theme_constant_override("separation", 8)
+	vbox.custom_minimum_size = Vector2(264, 0)
+	vbox.add_theme_constant_override("separation", 10)
 	_panel.add_child(vbox)
 	
 	# 1. 标题行（名称 + 稀有度品质）
@@ -81,7 +78,7 @@ func _build_ui() -> void:
 	_title_label = Label.new()
 	_title_label.name = "TitleLabel"
 	_title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_title_label.add_theme_font_size_override("font_size", 16)
+	_title_label.add_theme_font_size_override("font_size", 19)
 	_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_title_label.clip_text = true
 	_title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -90,9 +87,9 @@ func _build_ui() -> void:
 	_category_label = Label.new()
 	_category_label.name = "CategoryLabel"
 	_category_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_category_label.add_theme_font_size_override("font_size", 11)
-	_category_label.modulate = Color("#e5caa0")
-	header_hbox.add_child(_category_label)
+	_category_label.add_theme_font_size_override("font_size", 13)
+	_category_label.modulate = Color("a9c3bf")
+	vbox.add_child(_category_label)
 	
 	# 2. 属性面板（暗底微凸）
 	_attr_box = VBoxContainer.new()
@@ -104,7 +101,7 @@ func _build_ui() -> void:
 	attr_panel.name = "AttrPanel"
 	attr_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var attr_style := StyleBoxFlat.new()
-	attr_style.bg_color = Color("#0f0905", 0.75)
+	attr_style.bg_color = Color("0c222b", 0.75)
 	attr_style.set_corner_radius_all(6)
 	attr_style.content_margin_left = 8.0
 	attr_style.content_margin_top = 6.0
@@ -114,21 +111,21 @@ func _build_ui() -> void:
 	attr_panel.add_child(_attr_box)
 	vbox.add_child(attr_panel)
 	
-	# 3. 沉浸式奇幻背景故事
+	# 3. 物品描述
 	_desc_label = Label.new()
 	_desc_label.name = "DescLabel"
 	_desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_desc_label.custom_minimum_size = Vector2(232, 0)
+	_desc_label.custom_minimum_size = Vector2(264, 0)
 	_desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_desc_label.add_theme_font_size_override("font_size", 12)
-	_desc_label.add_theme_color_override("font_color", Color("#d8cfc4"))
+	_desc_label.add_theme_font_size_override("font_size", 14)
+	_desc_label.add_theme_color_override("font_color", Color("c6d6d0"))
 	vbox.add_child(_desc_label)
 	
 	# 4. 操作指引分割线
 	_divider = HSeparator.new()
 	_divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var div_style := StyleBoxLine.new()
-	div_style.color = Color("#5a3c1e", 0.6)
+	div_style.color = Color("49636b", 0.6)
 	div_style.thickness = 1
 	_divider.add_theme_stylebox_override("separator", div_style)
 	vbox.add_child(_divider)
@@ -137,10 +134,10 @@ func _build_ui() -> void:
 	_tip_label = Label.new()
 	_tip_label.name = "TipLabel"
 	_tip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_tip_label.custom_minimum_size = Vector2(232, 0)
+	_tip_label.custom_minimum_size = Vector2(264, 0)
 	_tip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_tip_label.add_theme_font_size_override("font_size", 11)
-	_tip_label.add_theme_color_override("font_color", Color("#a69480"))
+	_tip_label.add_theme_font_size_override("font_size", 13)
+	_tip_label.add_theme_color_override("font_color", Color("92b0b3"))
 	vbox.add_child(_tip_label)
 
 func _process(_delta: float) -> void:
@@ -205,20 +202,20 @@ func display_item(id: int, mouse_pos: Vector2, custom_info: Dictionary = {}) -> 
 		
 		var name_lbl := Label.new()
 		name_lbl.text = str(a.get("label", "")) + ":"
-		name_lbl.add_theme_font_size_override("font_size", 12)
-		name_lbl.add_theme_color_override("font_color", Color("#bcae9c"))
+		name_lbl.add_theme_font_size_override("font_size", 14)
+		name_lbl.add_theme_color_override("font_color", Color("a8c0c0"))
 		name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(name_lbl)
 		
 		var val_lbl := Label.new()
 		val_lbl.text = str(a.get("val", ""))
-		val_lbl.add_theme_font_size_override("font_size", 12)
+		val_lbl.add_theme_font_size_override("font_size", 14)
 		val_lbl.add_theme_color_override("font_color", a.get("color", Color.WHITE))
 		row.add_child(val_lbl)
 		
 		_attr_box.add_child(row)
 		
-	# 3. 沉浸式背景故事
+	# 3. 物品描述
 	_desc_label.text = str(info.get("description", ""))
 	
 	# 4. 操作与快捷键提示

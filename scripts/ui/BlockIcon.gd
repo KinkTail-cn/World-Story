@@ -48,7 +48,7 @@ func _setup_3d_viewport() -> void:
 	_viewport.name = "SubViewport"
 	_viewport.transparent_bg = true
 	_viewport.own_world_3d = true
-	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	_viewport.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
 	_container.add_child(_viewport)
 	
 	var env := WorldEnvironment.new()
@@ -87,5 +87,4 @@ func _on_overlay_draw() -> void:
 	# 绘制多方位阴影描边，防止任何背景下数字模糊
 	_overlay.draw_string(font, Vector2(7, 17), num_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0, 0, 0, 0.85))
 	_overlay.draw_string(font, Vector2(5, 15), num_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0, 0, 0, 0.85))
-	_overlay.draw_string(font, Vector2(6, 16), num_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#f3d38c"))
-
+	_overlay.draw_string(font, Vector2(6, 16), num_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("dfbd7d"))
