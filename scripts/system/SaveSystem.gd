@@ -94,10 +94,14 @@ func world_validation_error(data: Dictionary) -> String:
 	var player: Dictionary = data.player
 	if not world.has("blocks") and not world.has("modified_blocks"):
 		return "存档缺少地形数据"
-	if data.get("mode", "creative") not in ["creative", "survival"] or world.get("world_type", "island") not in ["island", "infinite"]:
+	if data.get("mode", "creative") not in ["creative", "survival"] or world.get("world_type", "island") not in ["island", "infinite", "village"]:
 		return "存档的游戏模式或世界类型无效"
 	if world.has("world_seed") and not _integer(world.world_seed):
 		return "存档的世界种子无效"
+	if world.has("village_generation_version") and (not _integer(world.village_generation_version) or world.village_generation_version < 0 or world.village_generation_version > 1):
+		return "存档的村庄生成版本无效"
+	if world.has("village_home") and (not world.village_home is Array or world.village_home.size() not in [0, 2] or not world.village_home.all(_integer)):
+		return "存档的村庄出生位置无效"
 	if world.has("blocks"):
 		if not world.blocks is String:
 			return "存档的岛屿数据无效"
@@ -355,6 +359,6 @@ func _decode(value, field: String = ""):
 		return result
 	# JSON numbers are floats. Restore discrete item/voxel fields while keeping
 	# physical centers and other continuous values as floats.
-	if value is float and _integer(value) and field in ["id", "count", "grid_size", "mat", "size", "pos", "cells", "schema_version", "source_item_id", "emblem"]:
+	if value is float and _integer(value) and field in ["id", "count", "grid_size", "mat", "size", "pos", "cells", "schema_version", "source_item_id", "emblem", "village_generation_version", "village_home"]:
 		return int(value)
 	return value

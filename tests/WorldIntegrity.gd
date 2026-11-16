@@ -87,7 +87,11 @@ func _run() -> void:
 	check(game.world._active_chunks.has(focus) and not game.world._active_chunks.has(Vector2i(1, 1)), "The first loaded chunk is at the saved position")
 	while game.is_loading:
 		await process_frame
-	check(game.world._active_chunks.size() == 49, "Prewarm completes the saved position's full view distance")
+	var view_ready := true
+	for dz in range(-3, 4):
+		for dx in range(-3, 4):
+			view_ready = view_ready and game.world._active_chunks.has(focus + Vector2i(dx, dz))
+	check(view_ready and game.world._active_chunks.size() < 300, "Prewarm completes the saved view and a bounded village extent when applicable")
 	await frames(10)
 	check(game.player.global_position.y >= ground - 0.01, "Restored player lands on the nearby collision")
 	print("WORLD_CONTINUE_SYNCHRONOUS_MS: ", synchronous_ms)

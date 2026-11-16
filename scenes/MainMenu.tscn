@@ -173,6 +173,17 @@ custom_minimum_size = Vector2(0, 44)
 autowrap_mode = 3
 text = "从晴风岛出发，探索不断延伸的大陆与群岛。"
 
+[node name="Seed" type="LineEdit" parent="ModePopup/Card/Body"]
+visible = false
+custom_minimum_size = Vector2(0, 40)
+placeholder_text = "村庄种子（留空随机，相同种子生成相同世界）"
+max_length = 11
+clear_button_enabled = true
+
+[node name="SeedError" type="Label" parent="ModePopup/Card/Body"]
+visible = false
+autowrap_mode = 3
+
 [node name="Start" type="Button" parent="ModePopup/Card/Body"]
 custom_minimum_size = Vector2(0, 48)
 text = "创建世界   →"

@@ -29,15 +29,18 @@ void vertex() {
 	float side = point.x - 0.5;
 	float ribbon_length = clamp(cape_length, 0.005, 1.6) * 0.90;
 	float gust = sin(TIME * 1.7 + sin(TIME * 0.43) * 0.4);
-	float roll = sin(TIME * (2.8 + wind_strength * 0.6) - 1.4 + side * 3.5);
-	float flutter = sin(TIME * (6.5 + wind_strength * 1.4) + side * 6.0);
+	// Speed changes the shape's amplitude, never its accumulated phase. Using
+	// TIME * a changing speed factor makes direction reversals jump between
+	// unrelated points in the wave, increasingly so after a long play session.
+	float roll = sin(TIME * 3.6 - 1.4 + side * 3.5);
+	float flutter = sin(TIME * 8.0 + side * 6.0);
 	float upper = clamp(0.15 + wind_strength * 0.50 + (0.08 + wind_strength * 0.06) * gust, -0.05, 1.45);
 	float lower = clamp(0.20 + wind_strength * 0.90 + (0.25 + wind_strength * 0.10) * roll, -0.25, 2.15);
-	float tip = lower + (0.28 + wind_strength * 0.12) * sin(TIME * (5.4 + wind_strength * 1.8) + side * 5.0) + flutter * 0.08;
+	float tip = lower + (0.28 + wind_strength * 0.12) * sin(TIME * 7.0 + side * 5.0) + flutter * 0.08;
 	vec2 curve = 0.58 * cape_arc(clamp(tail / 0.58, 0.0, 1.0), 0.0, upper);
 	curve += 0.27 * cape_arc(clamp((tail - 0.58) / 0.27, 0.0, 1.0), upper, lower);
 	curve += 0.15 * cape_arc(clamp((tail - 0.85) / 0.15, 0.0, 1.0), lower, tip);
-	float sway = sin(TIME * (1.9 + wind_strength * 0.35) - tail * 3.4);
+	float sway = sin(TIME * 2.4 - tail * 3.4);
 	sway += sin(TIME * 4.1 - tail * 5.0) * 0.25;
 	vec3 shift = vec3(ribbon_length * (0.04 + wind_strength * 0.035) * sway * pow(tail, 1.15), ribbon_length * (tail - curve.y), max(0.0, ribbon_length * curve.x));
 	VERTEX += shift * motion_scale;

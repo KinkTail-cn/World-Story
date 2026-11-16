@@ -70,6 +70,10 @@ func _start_game(data: Dictionary, mode: String = "creative", world_type: String
 	game.game_mode = mode
 	if is_instance_valid(game) and "world_type" in game:
 		game.world_type = world_type
+	var terrain = game.get_node("World")
+	terrain.world_type = world_type
+	if data.is_empty() and world_type == "village":
+		terrain.world_seed = menu.selected_world_seed
 	game.setup_lifecycle(save_system, settings_system, data)
 	add_child(game)
 	game.return_to_menu.connect(_return_to_menu)

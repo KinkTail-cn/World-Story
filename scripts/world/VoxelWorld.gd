@@ -5,6 +5,7 @@ signal block_changed(cell: Vector3i, id: int)
 signal loading_progress(ratio: float, message: String)
 signal loading_started
 signal world_ready
+signal village_spawn_ready(position: Vector3)
 
 # 基础资源与着色器预加载
 const Catalog = preload("res://scripts/content/BlockCatalog.gd")
@@ -14,6 +15,7 @@ const GLASS_SHADER: Shader = preload("res://shaders/glass.gdshader")
 const WATER_SHADER: Shader = preload("res://shaders/water.gdshader")
 const Document = preload("res://scripts/world/DocumentItem.gd")
 const GroundCover = preload("res://scripts/world/GroundCover.gd")
+const VillageGenerator = preload("res://scripts/world/VillageGenerator.gd")
 
 # 体素世界基础常量规范
 const CHUNK_SIZE: int = 16
@@ -48,9 +50,13 @@ const QUAD_UVS: Array[Vector2] = [
 ]
 const TRIANGLE_ORDER: Array[int] = [0, 2, 1, 0, 3, 2]
 
-# 地图模式与世界种子（"infinite": 真实无限大世界, "island": 晴风群岛经典有限地图）
+# 地图模式与种子：infinite 无限世界，island 经典岛屿，village 村落启程。
 @export var world_type: String = "island"
 @export var world_seed: int = 1337
+@export var village_generation_version: int = VillageGenerator.VERSION
+var villages = VillageGenerator.new()
+var village_spawn_pending: bool = false
+var starting_village: Dictionary = {}
 
 # 视距半径：加载中心区块外围 3 圈（即 7x7 = 49 个区块）
 const VIEW_DISTANCE: int = 3
@@ -163,9 +169,25 @@ func _request_initial_load() -> void:
 func _build_initial_world(revision: int) -> void:
 	if not is_inside_tree() or revision != _loading_revision:
 		return
+	if village_spawn_pending and village_generation_version > 0:
+		village_spawn_pending = false
+		loading_progress.emit(0.02, "正在选择村庄用地...")
+		for radius in range(VillageGenerator.START_SEARCH_RADIUS + 1):
+			for region in VillageGenerator.search_ring(Vector2i.ZERO, radius):
+				starting_village = villages.plan_for_region(region)
+				if not starting_village.is_empty():
+					break
+				await get_tree().process_frame
+				if not is_inside_tree() or revision != _loading_revision:
+					return
+			if not starting_village.is_empty():
+				break
+		if not starting_village.is_empty():
+			initial_load_position = get_spawn_position()
+			village_spawn_ready.emit(initial_load_position)
 	loading_progress.emit(0.15, "正在准备附近地形与碰撞...")
 	var center_chunk := _chunk_coord(Vector3i(initial_load_position.floor()))
-	if world_type == "infinite":
+	if world_type != "island":
 		_update_chunks_around(center_chunk, false)
 	else:
 		_chunk_load_queue.clear()
@@ -211,7 +233,7 @@ func _process(_delta: float) -> void:
 		_sea_floor.global_position = Vector3(center.x, SEA_FLOOR, center.z)
 	
 	# 无限地图模式下进行视距区块的流式加载与远距离卸载
-	if world_type == "infinite" and not is_loading:
+	if world_type != "island" and not is_loading:
 		_update_infinite_chunks(camera.global_position)
 
 
@@ -228,6 +250,7 @@ func _setup_noise() -> void:
 	_detail_noise.seed = world_seed + 99
 	_detail_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	_detail_noise.frequency = 0.035
+	villages.configure(world_seed, _get_procedural_height)
 
 
 ## 将经典晴风群岛、三棵自然树木与新手木屋写入原点一维缓存
@@ -391,7 +414,7 @@ func get_block(cell: Vector3i) -> int:
 		return int(_origin_blocks[_origin_index(cell)])
 		
 	# 若处于无限世界的远处未加载区块，通过确定性算法即时计算（用于边界相邻遮挡剔除）
-	if world_type == "infinite":
+	if world_type != "island":
 		return _get_procedural_block_at(cell.x, cell.y, cell.z)
 		
 	return 0
@@ -447,6 +470,14 @@ func is_water_at(point: Vector3) -> bool:
 func get_spawn_position() -> Vector3:
 	if not _generated:
 		return to_global(SPAWN)
+	if world_type == "village" and not starting_village.is_empty():
+		var centre: Vector2i = starting_village.centre
+		var preferred := centre + VillageGenerator.rotate_point(Vector2i(-1, 0), starting_village.orientation)
+		for attempt in range(82):
+			var point := preferred if attempt == 0 else centre + Vector2i((attempt - 1) % 9 - 4, (attempt - 1) / 9 - 4)
+			for y in range(CHUNK_HEIGHT - 1, 1, -1):
+				if get_block(Vector3i(point.x, y, point.y)) != 0 and get_block(Vector3i(point.x, y + 1, point.y)) == 0 and get_block(Vector3i(point.x, y + 2, point.y)) == 0 and get_block(Vector3i(point.x, y + 3, point.y)) == 0:
+					return to_global(Vector3(point.x + 0.5, y + 2.1, point.y + 0.5))
 	var preferred: Vector3i = Vector3i(16, 0, 21)
 	for attempt in range(SIZE.x * SIZE.z + 1):
 		var x: int = preferred.x if attempt == 0 else (attempt - 1) % SIZE.x
@@ -494,6 +525,8 @@ func save_data() -> Dictionary:
 	return {
 		"world_type": world_type,
 		"world_seed": world_seed,
+		"village_generation_version": village_generation_version,
+		"village_home": [starting_village.centre.x, starting_village.centre.y] if not starting_village.is_empty() else [],
 		"modified_blocks": mods,
 		"documents": entries,
 		"blocks": Marshalls.raw_to_base64(_origin_blocks) # 兼容原点数据
@@ -503,11 +536,21 @@ func save_data() -> Dictionary:
 ## 加载并恢复世界数据
 func load_data(data: Dictionary, focus_position: Vector3 = SPAWN) -> void:
 	initial_load_position = focus_position
+	village_spawn_pending = false
+	starting_village = {}
+	# Worlds saved before villages keep their original generated landscape.
+	village_generation_version = int(data.get("village_generation_version", 0))
 	if data.has("world_type"):
 		world_type = str(data.world_type)
 	if data.has("world_seed"):
 		world_seed = int(data.world_seed)
-		_setup_noise()
+	_setup_noise()
+	var village_home: Array = data.get("village_home", [])
+	if village_generation_version > 0 and world_type == "village" and village_home.size() == 2:
+		var home := Vector2i(int(village_home[0]), int(village_home[1]))
+		var plan: Dictionary = villages.plan_for_region(VillageGenerator.region_at(home))
+		if not plan.is_empty() and plan.centre == home:
+			starting_village = plan
 		
 	# 还原原点岛屿体素缓存
 	var encoded: String = str(data.get("blocks", ""))
@@ -670,6 +713,16 @@ func _generate_chunk_blocks(coord: Vector2i) -> PackedByteArray:
 											if blocks[idx] == 0:
 												blocks[idx] = 4
 						
+	# A village is part of the generated terrain, before persistent player edits.
+	if world_type != "island" and village_generation_version > 0:
+		var columns: Dictionary = villages.columns_for_chunk(coord)
+		for point in columns:
+			var values: PackedInt32Array = columns[point]
+			var lx := posmod(point.x, CHUNK_SIZE)
+			var lz := posmod(point.y, CHUNK_SIZE)
+			for y in range(1, CHUNK_HEIGHT):
+				if values[y] >= 0:
+					blocks[_chunk_local_index(lx, y, lz)] = values[y]
 	# Only visit edits belonging to this chunk, independent of global history size.
 	var modifications: Dictionary = _chunk_modifications.get(coord, {})
 	for index in modifications:
@@ -684,6 +737,10 @@ func _get_procedural_block_at(wx: int, y: int, wz: int) -> int:
 		return 5 # 基岩坚不可摧底层
 	if y >= CHUNK_HEIGHT:
 		return 0 # 虚空上限
+	if world_type != "island" and village_generation_version > 0:
+		var column: PackedInt32Array = villages.column_at(Vector2i(wx, wz))
+		if not column.is_empty() and column[y] >= 0:
+			return column[y]
 		
 	var ground_h: int = _get_procedural_height(wx, wz)
 	
@@ -739,6 +796,12 @@ func _get_procedural_block_at(wx: int, y: int, wz: int) -> int:
 
 ## 计算无限世界任意水平坐标的地表基础高度
 func _get_procedural_height(wx: int, wz: int) -> int:
+	var natural := _get_natural_height(wx, wz)
+	if village_generation_version > 0 and world_type != "island" and Vector2(wx - 15.5, wz - 15.5).length() >= 36:
+		return VillageGenerator.countryside_height(world_seed, Vector2i(wx, wz), natural)
+	return natural
+
+func _get_natural_height(wx: int, wz: int) -> int:
 	var dist: float = sqrt(pow(float(wx) - 15.5, 2.0) + pow(float(wz) - 15.5, 2.0))
 	if dist < 24.0:
 		return 1 # 晴风岛环岛内海浅水
@@ -809,7 +872,9 @@ func _is_tree_trunk_at(tx: int, tz: int) -> bool:
 	var off_x: int = 2 + (h % (cell_size - 4))
 	var off_z: int = 2 + ((h / 10) % (cell_size - 4))
 	
-	return (tx == gx * cell_size + off_x) and (tz == gz * cell_size + off_z)
+	if tx != gx * cell_size + off_x or tz != gz * cell_size + off_z:
+		return false
+	return village_generation_version == 0 or world_type == "island" or not villages.is_managed(Vector2i(tx, tz))
 
 
 ## 重建指定区块的三维网格与碰撞体
@@ -993,11 +1058,20 @@ func _update_infinite_chunks(player_pos: Vector3) -> void:
 
 ## 以目标区块为中心刷新视距加载与卸载范围
 func _update_chunks_around(center_chunk: Vector2i, instant: bool) -> void:
+	var settlement := Rect2i()
+	if village_generation_version > 0:
+		var point := center_chunk * CHUNK_SIZE + Vector2i(8, 8)
+		var plan: Dictionary = villages.plan_for_region(VillageGenerator.region_at(point))
+		if not plan.is_empty() and plan.bounds.grow(16).has_point(point):
+			var bounds: Rect2i = plan.bounds.grow(VillageGenerator.BLEND_MARGIN)
+			var first := Vector2i(floori(float(bounds.position.x) / CHUNK_SIZE), floori(float(bounds.position.y) / CHUNK_SIZE))
+			var last := Vector2i(floori(float(bounds.end.x - 1) / CHUNK_SIZE), floori(float(bounds.end.y - 1) / CHUNK_SIZE))
+			settlement = Rect2i(first, last - first + Vector2i.ONE)
 	# 1. 卸载超出视距范围的区块
 	var unload_distance: int = VIEW_DISTANCE + 1
 	var to_unload: Array[Vector2i] = []
 	for c in _active_chunks.keys():
-		if abs(c.x - center_chunk.x) > unload_distance or abs(c.y - center_chunk.y) > unload_distance:
+		if (abs(c.x - center_chunk.x) > unload_distance or abs(c.y - center_chunk.y) > unload_distance) and not settlement.has_point(c):
 			to_unload.append(c)
 			
 	for c in to_unload:
@@ -1011,6 +1085,13 @@ func _update_chunks_around(center_chunk: Vector2i, instant: bool) -> void:
 		for dx in range(-VIEW_DISTANCE, VIEW_DISTANCE + 1):
 			var c := Vector2i(center_chunk.x + dx, center_chunk.y + dz)
 			if not _active_chunks.has(c):
+				needed.append(c)
+	# Keep the settlement coherent while walking through it; distant roofs must
+	# not disappear just because a large village extends beyond seven chunks.
+	for z in range(settlement.position.y, settlement.end.y):
+		for x in range(settlement.position.x, settlement.end.x):
+			var c := Vector2i(x, z)
+			if not _active_chunks.has(c) and not needed.has(c):
 				needed.append(c)
 				
 	# 按距离由近及远排序，近处区块优先生成

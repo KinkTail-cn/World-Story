@@ -40,6 +40,8 @@ func _ready() -> void:
 	get_tree().auto_accept_quit = false
 	if is_instance_valid(world) and "world_type" in world:
 		world.world_type = world_type
+		world.village_spawn_pending = world_type == "village" and loaded_data.is_empty()
+		world.village_spawn_ready.connect(func(position: Vector3): player.global_position = position; player.velocity = Vector3.ZERO)
 	if is_instance_valid(world) and is_instance_valid(hud):
 		if world.has_signal("loading_progress"):
 			world.loading_progress.connect(hud.update_loading)
@@ -204,7 +206,7 @@ func _save_and_menu() -> void:
 func _on_rescued() -> void:
 	# Returning from a distant infinite chunk must warm the destination before
 	# physics resumes, just like restoring a save at a new location.
-	if world.world_type == "infinite":
+	if world.world_type != "island":
 		world.initial_load_position = player.global_position
 		world._request_initial_load()
 
