@@ -62,6 +62,25 @@ func _run() -> void:
 		var compatible: Dictionary = first.duplicate(true)
 		compatible.player["inventory"] = saves.save_inventory(inventory)
 		check(saves.world_validation_error(compatible).is_empty(), "Registered equipment is accepted by save validation: %d" % id)
+	# Retired custom-body metadata must not prevent restoring useful world,
+	# inventory or blueprint data after the editor has been removed.
+	var design := {"schema_version": 3, "name": "原有自制头饰", "category": "头部装备", "grid_size": 8, "created_at": "2026-11-14T00:00:00", "rig_reference": {"parameters": {"height": 2.4}, "joints": {}}, "voxels": [{"uid": "kept_cube", "pos": [0, 0, 0], "part": "头部装备", "anchor": "head", "offset": [0, 0.25, -0.025], "dimensions": [0.065, 0.065, 0.065], "mat": 4, "tint": "aabbcc", "size": 1, "motion": "fixed"}]}
+	var former_inventory = preload("res://scripts/inventory/Inventory.gd").new("survival")
+	former_inventory.bag[0] = {"id": 101, "count": 1, "custom_name": design.name, "blueprint": design.duplicate(true)}
+	check(former_inventory.equip_from_bag(0), "Prepare an item created while custom bodies were available")
+	check(former_inventory.add_document_item(109, {"custom_name": "保留图纸", "blueprints": [design]}), "Prepare a saved document with retired reference metadata")
+	var former_world: Dictionary = first.duplicate(true)
+	former_world.player.character = {"schema_version": 1, "parameters": {"height": 1.1}, "cubes": []}
+	former_world.player.inventory = saves.save_inventory(former_inventory)
+	check(saves.world_validation_error(former_world).is_empty(), "Retired character metadata does not reject a usable world")
+	var fixed_inventory = preload("res://scripts/inventory/Inventory.gd").new("survival")
+	saves.apply_inventory(fixed_inventory, former_world.player.inventory)
+	var restored_design: Dictionary = fixed_inventory.get_slot("equipment", 0).blueprint
+	check(fixed_inventory.equipment[0] == 101 and restored_design.name == design.name, "Existing custom equipment restores on the fixed player")
+	check(restored_design.voxels == design.voxels and not restored_design.has("rig_reference"), "Restore preserves blueprint cubes while dropping unused body metadata")
+	check(fixed_inventory.bag[0].blueprints[0].voxels == design.voxels, "Stored document keeps its original design contents")
+	var former_library = Manager.new()
+	check(former_library.import_blueprints([design]) and former_library.blueprints[0].voxels == design.voxels, "The normal blueprint library can still import those designs")
 	var player := {"global_position": Vector3(16, 6, 21), "rotation": Vector3(0, 1, 0)}
 	saves.apply_player(player, {})
 	check(player.global_position == Vector3(16, 6, 21) and player.rotation.y == 1, "Missing player fields preserve the safe spawn")

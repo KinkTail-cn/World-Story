@@ -8,7 +8,6 @@ const BlueprintEquipment = preload("res://scripts/blueprint/BlueprintEquipment.g
 const BlueprintVisual = preload("res://scripts/player/BlueprintEquipmentVisual.gd")
 const EquipmentSets = preload("res://scripts/content/EquipmentSets.gd")
 const SetVisual = preload("res://scripts/player/EquipmentSetVisual.gd")
-const Definition = preload("res://scripts/character/CharacterDefinition.gd")
 var pieces: Array[Array] = [[], [], [], [], [], [], []]
 var custom_visuals: Array[Node3D] = [null, null, null, null, null, null, null]
 var set_visuals: Array[Node3D] = [null, null, null, null, null, null, null]
@@ -100,53 +99,11 @@ func _piece(slot: int, parent: Node3D, pos: Vector3, size: Vector3, tint: Color 
 	piece.mesh = mesh
 	piece.material_override = material
 	piece.position = pos
-	var character = get_parent()
-	var bone := "body"
-	for key in character.rig_nodes:
-		if character.rig_nodes[key] == parent:
-			bone = key
-			break
-	piece.set_meta("bone",bone)
-	piece.set_meta("source_position",pos)
-	piece.set_meta("source_size",size)
 	if slot == 5:
 		piece.custom_aabb = mesh.get_aabb().grow(1.6)
 	piece.visible = false
 	parent.add_child(piece)
 	pieces[slot].append(piece)
-
-func _fit_base_piece(piece: MeshInstance3D, slot: int) -> void:
-	var character = get_parent()
-	var pos: Vector3 = piece.get_meta("source_position")
-	var size: Vector3 = piece.get_meta("source_size")
-	var fit: Transform3D = Definition.local_fit({},character.character_definition,str(piece.get_meta("bone")))
-	var inverse := fit.affine_inverse()
-	var cells := Definition.voxelize_box(pos,size,fit,1024)
-	var surface := SurfaceTool.new()
-	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for cell in cells:
-		var cube := BoxMesh.new()
-		cube.size = Vector3.ONE * float(cell.edge)
-		var arrays := cube.surface_get_arrays(0)
-		var old_center: Vector3 = inverse * Vector3(cell.center)
-		var uv := Vector2(0.5+(old_center.x-pos.x)/size.x,0.5-(old_center.y-pos.y)/size.y)
-		for index in arrays[Mesh.ARRAY_INDEX]:
-			surface.set_normal(arrays[Mesh.ARRAY_NORMAL][index])
-			surface.set_uv(uv)
-			surface.add_vertex(Vector3(arrays[Mesh.ARRAY_VERTEX][index])+Vector3(cell.center))
-	piece.mesh = surface.commit()
-	piece.position = Vector3.ZERO
-	piece.set_meta("fitted",true)
-	if slot == 5:
-		piece.material_override.set_shader_parameter("cape_length",size.y * Definition.unit(character.character_definition))
-		piece.custom_aabb = piece.mesh.get_aabb().grow(1.6)
-
-func _exit_tree() -> void:
-	for group in pieces:
-		for piece in group:
-			if is_instance_valid(piece):
-				piece.visible = false
-				piece.queue_free()
 
 func apply_equipment(ids: Array[int], items: Array = []) -> void:
 	equipped_ids = ids.duplicate()
@@ -156,8 +113,6 @@ func apply_equipment(ids: Array[int], items: Array = []) -> void:
 		var custom := ids[slot] != 0 and int(item.get("id", 0)) == ids[slot] and BlueprintEquipment.is_custom_item(item)
 		for piece in pieces[slot]:
 			piece.visible = ids[slot] == 101 + slot and not custom
-			if piece.visible and not get_parent().character_definition.is_empty() and not piece.get_meta("fitted",false):
-				_fit_base_piece(piece,slot)
 		var set_id: int = ids[slot] if EquipmentSets.is_new(ids[slot]) and Catalog.equipment_slot(ids[slot]) == slot else 0
 		var set_visual = set_visuals[slot]
 		if is_instance_valid(set_visual) and set_visual.item_id != set_id:

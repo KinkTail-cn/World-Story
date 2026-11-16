@@ -99,9 +99,9 @@ func duplicate_selected() -> bool:
 		if bool(part.get("locked", false)):
 			continue
 		var copy := part.duplicate(true)
-		var transform := Geometry.character_transform(copy, category, blueprint.rig_reference)
+		var transform := Geometry.character_transform(copy, category)
 		transform.origin.x += 0.0325
-		Geometry.set_character_transform(copy, category, transform,"",blueprint.rig_reference)
+		Geometry.set_character_transform(copy, category, transform)
 		copy["label"] = str(copy.get("label", "部件")) + " 副本"
 		var uid: String = blueprint.add_part(copy)
 		if not uid.is_empty():
@@ -113,9 +113,9 @@ func translate_selected(delta: Vector3) -> bool:
 	var before := snapshot()
 	for part in selected_parts():
 		if not bool(part.get("locked", false)):
-			var transform := Geometry.character_transform(part, category,blueprint.rig_reference)
+			var transform := Geometry.character_transform(part, category)
 			transform.origin += delta
-			Geometry.set_character_transform(part, category, transform,"",blueprint.rig_reference)
+			Geometry.set_character_transform(part, category, transform)
 	return record(before)
 
 func set_properties(properties: Dictionary) -> bool:
@@ -130,15 +130,14 @@ func set_properties(properties: Dictionary) -> bool:
 				if properties.has(flag):
 					part[flag] = properties[flag]
 			continue
-		var transform := Geometry.character_transform(part, category,blueprint.rig_reference)
-		var bone := Geometry.anchor(part, category,blueprint.rig_reference)
+		var transform := Geometry.character_transform(part, category)
+		var bone := Geometry.anchor(part, category)
 		if properties.has("anchor") and Geometry.ORIGINS.has(str(properties.anchor)):
 			bone = str(properties.anchor)
 		if properties.has("offset"):
-			var origins: Dictionary = Geometry.ORIGINS if blueprint.rig_reference.is_empty() else Geometry.CharacterDefinition.rest_origins(blueprint.rig_reference)
-			transform.origin = Vector3(origins[bone]) + Geometry.vector(properties.offset)
+			transform.origin = Vector3(Geometry.ORIGINS[bone]) + Geometry.vector(properties.offset)
 		if properties.has("anchor") or properties.has("offset"):
-			Geometry.set_character_transform(part, category, transform, bone,blueprint.rig_reference)
+			Geometry.set_character_transform(part, category, transform, bone)
 			if properties.has("offset"):
 				part["offset"] = properties.offset.duplicate()
 		for key in ["label", "dimensions", "mat", "tint", "surface", "hidden", "locked", "motion"]:
@@ -161,7 +160,7 @@ func mirror_selected() -> bool:
 	for part in sources:
 		if bool(part.get("locked", false)):
 			continue
-		var copy := Geometry.mirrored(part, category,blueprint.rig_reference)
+		var copy := Geometry.mirrored(part, category)
 		var found := false
 		for existing in blueprint.voxels:
 			if str(existing.part) == category and _same_geometry(existing, copy):
@@ -177,7 +176,7 @@ func mirror_selected() -> bool:
 	return record(before)
 
 func _same_geometry(a: Dictionary, b: Dictionary) -> bool:
-	return str(a.get("shape", "box")) == str(b.get("shape", "box")) and Geometry.dimensions(a).is_equal_approx(Geometry.dimensions(b)) and Geometry.character_transform(a, category,blueprint.rig_reference).is_equal_approx(Geometry.character_transform(b, category,blueprint.rig_reference))
+	return str(a.get("shape", "box")) == str(b.get("shape", "box")) and Geometry.dimensions(a).is_equal_approx(Geometry.dimensions(b)) and Geometry.character_transform(a, category).is_equal_approx(Geometry.character_transform(b, category))
 
 func undo() -> bool:
 	if undo_stack.is_empty():
@@ -199,7 +198,7 @@ func redo() -> bool:
 
 func _restore(state: Dictionary) -> void:
 	var restored = Data.from_dictionary(state.data)
-	for key in ["name", "category", "grid_size", "cells", "voxels", "created_at", "source_item_id", "schema_version", "rig_reference"]:
+	for key in ["name", "category", "grid_size", "cells", "voxels", "created_at", "source_item_id", "schema_version"]:
 		blueprint.set(key, restored.get(key))
 	selection.assign(state.selection)
 	blueprint.ensure_ids()

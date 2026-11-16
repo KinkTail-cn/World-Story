@@ -2,7 +2,6 @@ extends RefCounted
 
 const Models = preload("res://scripts/player/EquipmentModels.gd")
 const Cubes = preload("res://scripts/content/CubeParts.gd")
-const CharacterDefinition = preload("res://scripts/character/CharacterDefinition.gd")
 const ORIGINS: Dictionary = Models.BONE_ORIGINS
 const ANCHORS: Array[String] = ["head", "body", "left_arm", "right_arm", "left_forearm", "right_forearm", "left_leg", "right_leg", "left_lower_leg", "right_lower_leg"]
 const ANCHOR_NAMES: Array[String] = ["头部", "躯干", "左大臂", "右大臂", "左前臂", "右前臂", "左大腿", "右大腿", "左小腿", "右小腿"]
@@ -34,17 +33,7 @@ static func is_cube(part: Dictionary) -> bool:
 static func center(part: Dictionary) -> Vector3:
 	return vector(part.center) if part.has("center") else vector(part.get("pos")) * UNIT
 
-static func template_origin(category: String, reference: Dictionary = {}) -> Vector3:
-	var standard := _standard_template_origin(category)
-	if reference.is_empty():
-		return standard
-	var char_point := PREVIEW_FLIP * standard
-	var bone := auto_anchor(category,char_point)
-	var local := char_point - Vector3(ORIGINS[bone])
-	var mapped: Vector3 = CharacterDefinition.rest_origins(reference)[bone] + CharacterDefinition.local_fit({},reference,bone) * local
-	return PREVIEW_FLIP * mapped
-
-static func _standard_template_origin(category: String) -> Vector3:
+static func template_origin(category: String) -> Vector3:
 	match category:
 		"头部装备": return Vector3(0, 1.575, 0)
 		"盔甲": return Vector3(0, 1.0125, 0)
@@ -55,69 +44,64 @@ static func _standard_template_origin(category: String) -> Vector3:
 		"腰带": return Vector3(0, 0.715, 0)
 	return Vector3.ZERO
 
-static func auto_anchor(category: String, pos: Vector3, reference: Dictionary = {}) -> String:
+static func auto_anchor(category: String, pos: Vector3) -> String:
 	var side := "right" if pos.x >= 0.0 else "left"
-	var origins: Dictionary = ORIGINS if reference.is_empty() else CharacterDefinition.rest_origins(reference)
 	match category:
 		"头部装备": return "head"
 		"手套": return side + "_forearm"
-		"裤甲", "鞋子": return side + ("_lower_leg" if category == "鞋子" or pos.y < Vector3(origins[side + "_lower_leg"]).y else "_leg")
+		"裤甲", "鞋子": return side + ("_lower_leg" if category == "鞋子" or pos.y < 0.335 else "_leg")
 		"盔甲":
-			var threshold := 0.26 if reference.is_empty() else absf(Vector3(origins[side + "_arm"]).x) * (0.26 / 0.3375)
-			if absf(pos.x) > threshold:
-				return side + ("_forearm" if pos.y < Vector3(origins[side + "_forearm"]).y else "_arm")
+			if absf(pos.x) > 0.26:
+				return side + ("_forearm" if pos.y < 1.01 else "_arm")
 	return "body"
 
-static func anchor(part: Dictionary, category: String, reference: Dictionary = {}) -> String:
-	return str(part.anchor) if ORIGINS.has(str(part.get("anchor", ""))) else auto_anchor(category, PREVIEW_FLIP * (template_origin(category,reference) + center(part)),reference)
+static func anchor(part: Dictionary, category: String) -> String:
+	return str(part.anchor) if ORIGINS.has(str(part.get("anchor", ""))) else auto_anchor(category, PREVIEW_FLIP * (template_origin(category) + center(part)))
 
-static func character_transform(part: Dictionary, category: String, reference: Dictionary = {}) -> Transform3D:
-	var pos := PREVIEW_FLIP * (template_origin(category,reference) + center(part))
+static func character_transform(part: Dictionary, category: String) -> Transform3D:
+	var pos := PREVIEW_FLIP * (template_origin(category) + center(part))
 	if part.has("offset"):
-		var origins: Dictionary = ORIGINS if reference.is_empty() else CharacterDefinition.rest_origins(reference)
-		pos = Vector3(origins[anchor(part, category,reference)]) + vector(part.offset)
+		pos = Vector3(ORIGINS[anchor(part, category)]) + vector(part.offset)
 	return Transform3D(Basis.IDENTITY, pos)
 
-static func local_transform(part: Dictionary, category: String, reference: Dictionary = {}) -> Transform3D:
-	var transform := character_transform(part, category,reference)
-	var origins: Dictionary = ORIGINS if reference.is_empty() else CharacterDefinition.rest_origins(reference)
-	transform.origin -= Vector3(origins[anchor(part, category,reference)])
+static func local_transform(part: Dictionary, category: String) -> Transform3D:
+	var transform := character_transform(part, category)
+	transform.origin -= Vector3(ORIGINS[anchor(part, category)])
 	return transform
 
-static func preview_transform(part: Dictionary, category: String, reference: Dictionary = {}) -> Transform3D:
-	return Transform3D(PREVIEW_FLIP, Vector3.ZERO) * character_transform(part, category,reference)
+static func preview_transform(part: Dictionary, category: String) -> Transform3D:
+	return Transform3D(PREVIEW_FLIP, Vector3.ZERO) * character_transform(part, category)
 
-static func set_character_transform(part: Dictionary, category: String, transform: Transform3D, target_anchor: String = "", reference: Dictionary = {}) -> void:
-	var bone := target_anchor if ORIGINS.has(target_anchor) else anchor(part, category,reference)
-	var origins: Dictionary = ORIGINS if reference.is_empty() else CharacterDefinition.rest_origins(reference)
+static func set_character_transform(part: Dictionary, category: String, transform: Transform3D, target_anchor: String = "") -> void:
+	var bone := target_anchor if ORIGINS.has(target_anchor) else anchor(part, category)
 	part["anchor"] = bone
-	part["offset"] = array(transform.origin - Vector3(origins[bone]))
+	part["offset"] = array(transform.origin - Vector3(ORIGINS[bone]))
 	part["shape"] = "box"
 	part.erase("rotation")
 	part.erase("cloth")
-	var legacy_center := PREVIEW_FLIP * transform.origin - template_origin(category,reference)
+	var legacy_center := PREVIEW_FLIP * transform.origin - template_origin(category)
 	part["center"] = array(legacy_center)
 	part["pos"] = Vector3i((legacy_center / UNIT).round())
 
-static func primitive(category: String, preview_pos: Vector3, extent: Vector3, bone: String = "", reference: Dictionary = {}) -> Dictionary:
+static func primitive(category: String, preview_pos: Vector3, extent: Vector3, bone: String = "") -> Dictionary:
 	var char_pos := PREVIEW_FLIP * preview_pos
-	var chosen := bone if ORIGINS.has(bone) else auto_anchor(category, char_pos,reference)
+	var chosen := bone if ORIGINS.has(bone) else auto_anchor(category, char_pos)
 	if not Cubes.is_cube(extent):
 		return {}
 	var part := {"part": category, "mat": 1, "size": 1, "shape": "box", "dimensions": array(extent)}
-	set_character_transform(part, category, Transform3D(Basis.IDENTITY, char_pos), chosen,reference)
+	set_character_transform(part, category, Transform3D(Basis.IDENTITY, char_pos), chosen)
 	return part
 
-static func mirrored(part: Dictionary, category: String, reference: Dictionary = {}) -> Dictionary:
+static func mirrored(part: Dictionary, category: String) -> Dictionary:
 	var copy := part.duplicate(true)
-	var transform := character_transform(part, category,reference)
+	var transform := character_transform(part, category)
 	transform.origin.x = -transform.origin.x
-	var bone := anchor(part, category,reference)
+	var bone := anchor(part, category)
 	if bone.begins_with("left_"):
 		bone = bone.replace("left_", "right_")
 	elif bone.begins_with("right_"):
 		bone = bone.replace("right_", "left_")
-	set_character_transform(copy, category, transform, bone,reference)
+	set_character_transform(copy, category, transform, bone)
 	return copy
 
 static func volume(part: Dictionary) -> float:

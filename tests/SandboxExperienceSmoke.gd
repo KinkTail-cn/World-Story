@@ -35,6 +35,10 @@ func _run() -> void:
 		await physics_frame
 	check(not InputMap.has_action("journey") and not game.has_node("JourneyDirector"), "Sandbox starts directly without a task system")
 	check(hud.find_children("*Journey*", "", true, false).is_empty(), "HUD has no chapter tracker or story panel")
+	check(not InputMap.has_action("character_creator") and hud.find_children("*CharacterCreator*", "", true, false).is_empty(), "The retired character creator has no input action or scene nodes")
+	key(KEY_K)
+	await frames()
+	check(not paused and not hud.any_modal_visible(), "K no longer opens a character editor")
 	check(game.inventory.count_item(3) == 0 and game.inventory.bag.size() == 24, "Survival keeps its normal empty bag and resource rules")
 	await capture("survival")
 	var old_content := root.content_scale_size
@@ -44,6 +48,7 @@ func _run() -> void:
 		key(KEY_ESCAPE)
 		await frames()
 		check(paused and hud.pause_panel.visible, "Physical Escape pauses the sandbox")
+		check(find_button(hud.pause_panel, "人物创造器  K") == null, "Pause menu contains only the current sandbox actions")
 		fits(hud.get_node("Root/Pause/Panel"), "All pause actions fit")
 		fits(hud.vitals_label, "Vital signs fit")
 		if dimensions.x == 800:

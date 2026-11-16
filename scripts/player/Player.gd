@@ -10,14 +10,12 @@ signal document_mined(document: Node3D)
 signal vitals_changed(health: float, air: float, hurt: bool)
 signal sound_requested(kind: String)
 signal rescued
-signal character_changed(data: Dictionary)
 
 const Catalog = preload("res://scripts/content/BlockCatalog.gd")
 const HELD_BLOCK = preload("res://scenes/HeldBlock.tscn")
 const ItemCatalog = preload("res://scripts/inventory/ItemCatalog.gd")
 const ToolSwing = preload("res://scripts/player/ToolSwing.gd")
 const WeaponSwing = preload("res://scripts/player/WeaponSwing.gd")
-const CharacterDefinition = preload("res://scripts/character/CharacterDefinition.gd")
 const REACH: float = 4.8
 const CAMERA_DISTANCE: float = 3.2
 const CAMERA_OFFSET := Vector3(0.90, 0.12, 3.2)
@@ -62,8 +60,6 @@ var damage_grace: float = 0.0
 var _damage_age: float = 10.0
 var _fall_speed: float = 0.0
 var _step_time: float = 0.0
-var character_definition: Dictionary = {}
-var body_metrics: Dictionary = CharacterDefinition.metrics()
 
 @onready var visual = $Visual
 @onready var rig: Node3D = $CameraRig
@@ -109,40 +105,11 @@ func _ready() -> void:
 	effects_root.global_transform = Transform3D.IDENTITY
 
 func _process(_delta: float) -> void:
-	_update_eye_position()
 	_update_camera_clearance()
 	_resolve_camera_collision()
 	# The boom can collapse to eye distance in a tight corner. Hide the body
 	# before the near plane enters the head or shoulder meshes.
-	visual.visible = not first_person and camera.global_position.distance_to(rig.global_position) > CAMERA_HIDE_DISTANCE * float(body_metrics.unit)
-
-func apply_character(data: Dictionary, check_space: bool = true) -> Dictionary:
-	var error := CharacterDefinition.playable_error(data)
-	if not error.is_empty():
-		return {"ok": false, "message": error}
-	data = CharacterDefinition.normalized(data)
-	if sitting:
-		return {"ok": false, "message": "请先起身，再应用人物体型"}
-	var candidate := CharacterDefinition.metrics(data)
-	if check_space and not _can_occupy(global_position, false, candidate):
-		return {"ok": false, "message": "当前位置空间不足，请到开阔处应用人物 · 设计已保留"}
-	if not visual.apply_character(data):
-		return {"ok": false, "message": "人物模型未通过校验"}
-	character_definition = data.duplicate(true)
-	body_metrics = candidate
-	standing_shape.radius = float(candidate.radius)
-	standing_shape.height = float(candidate.height)
-	sitting_shape.radius = float(candidate.radius)
-	sitting_shape.height = float(candidate.seated_height)
-	collision.shape = standing_shape
-	collision.position.y = float(candidate.height) * 0.5
-	velocity = Vector3.ZERO
-	mining_time = 0.0
-	interaction_blocked = true
-	_update_camera_height()
-	select_slot(selected_slot)
-	character_changed.emit(character_definition)
-	return {"ok": true, "message": "已应用人物 · 相机、碰撞和装备已适配"}
+	visual.visible = not first_person and camera.global_position.distance_to(rig.global_position) > CAMERA_HIDE_DISTANCE
 
 func _update_camera_clearance() -> void:
 	var viewport_size := get_viewport().get_visible_rect().size
@@ -237,23 +204,16 @@ func select_function(function: int) -> void:
 		message.emit("挖掘 / 建造：左键挖掘，右键放置")
 	function_changed.emit(active_function, sitting)
 
-func _can_occupy(pos: Vector3, seated: bool, candidate: Dictionary = {}) -> bool:
-	var metrics: Dictionary = body_metrics if candidate.is_empty() else candidate
-	var height: float = metrics.seated_height if seated else metrics.height
-	var radius: float = metrics.radius
-	var minimum := Vector3i((pos + Vector3(-radius, 0.005, -radius)).floor())
-	var maximum := Vector3i((pos + Vector3(radius, height - 0.005, radius)).floor())
+func _can_occupy(pos: Vector3, seated: bool) -> bool:
+	var height: float = 1.3 if seated else 1.8
+	var minimum := Vector3i((pos + Vector3(-0.36, 0.005, -0.36)).floor())
+	var maximum := Vector3i((pos + Vector3(0.36, height - 0.005, 0.36)).floor())
 	for x in range(minimum.x, maximum.x + 1):
 		for y in range(minimum.y, maximum.y + 1):
 			for z in range(minimum.z, maximum.z + 1):
 				if world.get_block(Vector3i(x, y, z)) != 0:
 					return false
 	occupancy_query.shape = sitting_shape if seated else standing_shape
-	if not candidate.is_empty():
-		var shape := CapsuleShape3D.new()
-		shape.radius = radius
-		shape.height = height
-		occupancy_query.shape = shape
 	occupancy_query.transform = Transform3D(Basis.IDENTITY, pos + Vector3(0, height * 0.5, 0))
 	return get_world_3d().direct_space_state.intersect_shape(occupancy_query, 1).is_empty()
 
@@ -261,11 +221,11 @@ func _sit_on_target() -> bool:
 	if target_id <= 0 or world.get_block(target_cell) == 0:
 		return false
 	var pos := Vector3(target_cell) + Vector3(0.5, 1.01, 0.5)
-	if pos.distance_to(global_position + Vector3(0, float(body_metrics.height) * 0.5, 0)) > REACH:
+	if pos.distance_to(global_position + Vector3(0, 0.9, 0)) > REACH:
 		message.emit("方块太远，请靠近后坐下")
 		return false
 	var facing := -rig.global_basis.z
-	var feet: Vector3i = Vector3i((pos + facing * 0.68 * float(body_metrics.stride) + Vector3(0, 0.1, 0)).floor())
+	var feet: Vector3i = Vector3i((pos + facing * 0.68 + Vector3(0, 0.1, 0)).floor())
 	if not _can_occupy(pos, true) or world.get_block(feet) != 0:
 		message.emit("方块上方或前方空间不足，无法坐下")
 		return false
@@ -275,8 +235,8 @@ func _sit_on_target() -> bool:
 	velocity = Vector3.ZERO
 	global_position = pos
 	collision.shape = sitting_shape
-	collision.position.y = float(body_metrics.seated_height) * 0.5
-	visual.position.y = float(body_metrics.seat_offset)
+	collision.position.y = 0.65
+	visual.position.y = -0.5625
 	visual.rotation.y = rig.rotation.y
 	visual.animate(0.0, 0.0, false, false, false, false, true)
 	_update_camera_height()
@@ -303,7 +263,7 @@ func _stand_up(force: bool = false) -> bool:
 	global_position = destination
 	velocity = Vector3.ZERO
 	collision.shape = standing_shape
-	collision.position.y = float(body_metrics.height) * 0.5
+	collision.position.y = 0.9
 	visual.position.y = 0.0
 	visual.animate(0.0, 0.0, false, false)
 	_update_camera_height()
@@ -313,27 +273,15 @@ func _stand_up(force: bool = false) -> bool:
 
 ## Sweep from the player's center to the entire over-shoulder camera position.
 func _update_camera_height() -> void:
-	_update_eye_position()
+	rig.position = Vector3(0.0, 0.95 if sitting else (1.6 if first_person else 1.62), 0.0)
 	arm.position = Vector3.ZERO
-	arm.spring_length = 0.0 if first_person else CAMERA_DISTANCE * maxf(0.75, float(body_metrics.unit))
+	arm.spring_length = 0.0 if first_person else CAMERA_DISTANCE
 	# Keep the sweep origin inside the character's free space. Encode both
 	# lateral shoulder offset and camera distance in the boom direction so a
 	# side wall shortens them together, rather than embedding the pivot.
 	arm.basis = Basis.IDENTITY if first_person else Basis(Quaternion(Vector3.BACK, CAMERA_OFFSET.normalized()))
 	camera.basis = arm.basis.inverse()
 	camera.position = Vector3.ZERO
-
-func _update_eye_position() -> void:
-	var eye: Vector3 = body_metrics.eye_position
-	var eye_height: float = eye.y + (float(body_metrics.seat_offset) - 0.0875 * float(body_metrics.unit) if sitting else (0.0 if first_person else 0.02 * float(body_metrics.unit)))
-	var offset := Basis(Vector3.UP,rig.rotation.y) * Vector3(eye.x,0,eye.z) if first_person else Vector3.ZERO
-	rig.position = Vector3(offset.x,eye_height,offset.z)
-
-func _breathing_position() -> Vector3:
-	var point: Vector3 = body_metrics.breathing_position
-	if sitting:
-		point.y += float(body_metrics.seat_offset)
-	return global_position + Basis(Vector3.UP,visual.rotation.y) * point
 
 func _physics_process(delta: float) -> void:
 	if world == null or not controls_enabled:
@@ -358,14 +306,14 @@ func _physics_process(delta: float) -> void:
 			return
 	var direction := rig.global_basis * Vector3(input.x, 0, input.y)
 	direction.y = 0.0
-	var torso := global_position + Vector3(0, body_metrics.torso, 0)
+	var torso := global_position + Vector3(0, 0.85, 0)
 	var was_swimming: bool = swimming
 	var rising_out: bool = velocity.y > 0.0 and torso.y > world.SEA_LEVEL - 0.15 and not swimming
 	var swim_threshold: float = 0.12 if swimming else -0.04
 	swimming = torso.y < world.SEA_LEVEL + swim_threshold and world.is_water_at(torso) and not rising_out
 	if swimming and not was_swimming:
 		velocity.y = maxf(velocity.y, -1.5)
-	submerged = world.is_water_at(_breathing_position())
+	submerged = world.is_water_at(global_position + Vector3(0, 1.45, 0))
 	if swimming:
 		var swim_speed: float = 6.0 if Input.is_action_pressed("sprint") else 4.2
 		if submerged:
@@ -375,7 +323,7 @@ func _physics_process(delta: float) -> void:
 		if vertical != 0.0:
 			desired.y = vertical * 3.4
 		elif not submerged:
-			desired.y = clampf((world.SEA_LEVEL - float(body_metrics.float_height) - global_position.y) * 5.0, -1.8, 1.8)
+			desired.y = clampf((world.SEA_LEVEL - 1.25 - global_position.y) * 5.0, -1.8, 1.8)
 		velocity = velocity.move_toward(desired, delta * 9.0)
 		# Breach the surface with enough momentum to jump onto the shoreline.
 		if vertical > 0.0 and torso.y >= world.SEA_LEVEL - 0.08:
@@ -499,7 +447,7 @@ func _update_vitals(delta: float) -> void:
 		health = 100.0
 		air = 18.0
 	else:
-		var head_under: bool = world.is_water_at(_breathing_position())
+		var head_under: bool = world.is_water_at(global_position + Vector3(0, 1.45, 0))
 		air = maxf(0.0, air - delta) if head_under else minf(18.0, air + delta * 7.0)
 		if air <= 0.0:
 			take_damage(9.0, "空气耗尽，请上浮")
@@ -562,7 +510,7 @@ func _emit_status() -> void:
 	var speed_mult: float = ItemCatalog.get_mining_speed(held_id, target_id)
 	var max_time: float = 0.35 if target_document != null else (Catalog.mine_time(target_id) / speed_mult if target_id > 0 else 0.0)
 	var progress: float = (mining_time / max_time) if max_time > 0.0 else 0.0
-	water_status_changed.emit(swimming, submerged, world.is_water_at(camera.global_position), maxf(0.0, world.SEA_LEVEL - _breathing_position().y))
+	water_status_changed.emit(swimming, submerged, world.is_water_at(camera.global_position), maxf(0.0, world.SEA_LEVEL - global_position.y - 1.45))
 	
 	var block_name: String = ""
 	if target_document != null:
@@ -595,7 +543,7 @@ func _update_target() -> void:
 		return
 	var point: Vector3 = hit.position
 	var normal: Vector3 = hit.normal
-	if point.distance_to(global_position + Vector3(0, body_metrics.interaction, 0)) > REACH:
+	if point.distance_to(global_position + Vector3(0, 1.2, 0)) > REACH:
 		mining_time = 0.0
 		return
 	target_cell = Vector3i((point - normal * 0.01).floor())
@@ -673,8 +621,7 @@ func _place() -> void:
 			message.emit("请瞄准方块顶面放置纸笔")
 			return
 		var pos := Vector3(target_cell) + Vector3(0.5, 1.005, 0.5)
-		var radius: float = body_metrics.radius
-		var occupied := AABB(global_position + Vector3(-radius, 0, -radius), Vector3(radius * 2.0, body_metrics.height, radius * 2.0))
+		var occupied := AABB(global_position + Vector3(-0.36, 0, -0.36), Vector3(0.72, 1.8, 0.72))
 		if occupied.intersects(AABB(pos + Vector3(-0.31, 0, -0.24), Vector3(0.62, 0.1, 0.48))):
 			message.emit("请退后一点再放置纸笔")
 			return
@@ -706,8 +653,7 @@ func _place() -> void:
 		message.emit("这里没有可用的建造空间")
 		return
 	var block_box := AABB(Vector3(cell), Vector3.ONE)
-	var radius: float = body_metrics.radius
-	var player_box := AABB(global_position + Vector3(-radius, 0.01, -radius), Vector3(radius * 2.0, float(body_metrics.height) - 0.02, radius * 2.0))
+	var player_box := AABB(global_position + Vector3(-0.36, 0.01, -0.36), Vector3(0.72, 1.78, 0.72))
 	if block_box.intersects(player_box):
 		message.emit("方块太靠近角色，请稍微退后")
 		return

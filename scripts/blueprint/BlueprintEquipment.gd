@@ -80,4 +80,4 @@ static func template_origin(category: String) -> Vector3:
 	return Geometry.template_origin(category)
 
 static func character_position(blueprint: Dictionary, voxel: Dictionary) -> Vector3:
-	return Geometry.character_transform(voxel, str(blueprint.get("category", "")), blueprint.get("rig_reference",{})).origin
+	return Geometry.character_transform(voxel, str(blueprint.get("category", ""))).origin

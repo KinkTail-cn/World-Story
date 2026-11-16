@@ -32,7 +32,6 @@ var _feedback_time: float = 0.0
 var preview_character: Node3D
 var preview_viewport: SubViewport
 var preview_camera: Camera3D
-var character_definition: Dictionary = {}
 
 @onready var card: Panel = $Card
 @onready var close_button: Button = %CloseButton
@@ -342,21 +341,10 @@ func _refresh() -> void:
 	preview_character.equipment_visuals.apply_equipment(model.equipment, model.equipment_items)
 	var tall_hat := EquipmentSets.style(model.equipment[0]) == "mage"
 	var new_helmet := EquipmentSets.is_new(model.equipment[0])
-	var body_height: float = preview_character.body_metrics.height
-	var factor: float = body_height / 1.8
-	preview_camera.size = (2.55 if tall_hat else (2.25 if new_helmet else 2.05)) * factor
-	preview_camera.position = Vector3(0, 1.15 * factor, maxf(3.0, body_height * 1.7))
-	preview_camera.look_at(Vector3(0, (1.13 if tall_hat else (1.05 if new_helmet else 0.95)) * factor, 0))
+	preview_camera.size = 2.55 if tall_hat else (2.25 if new_helmet else 2.05)
+	preview_camera.look_at(Vector3(0, 1.13 if tall_hat else (1.05 if new_helmet else 0.95), 0))
 	_update_view_visibility()
 	_update_category_buttons()
-
-func set_character_definition(data: Dictionary) -> void:
-	if character_definition == data:
-		return
-	character_definition = data.duplicate(true)
-	preview_character.apply_character(data)
-	preview_character.held_item.visible = false
-	_refresh()
 
 func _setup_preview() -> void:
 	preview_viewport = SubViewport.new()

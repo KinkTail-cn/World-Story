@@ -63,6 +63,9 @@ func _run() -> void:
 	game._save_and_menu()
 	await frames()
 	check(boot.game == null and boot.menu.visible and not paused, "Successful save-and-menu returns to the live title")
+	var former_save: Dictionary = saves.load_world().data
+	former_save.player.character = {"schema_version": 1, "name": "旧自定义人物", "parameters": {"height": 1.1}, "cubes": []}
+	check(saves.save_game(former_save), "Write a world snapshot containing the retired character field")
 	boot.menu._open_mode_popup()
 	boot.menu._start_selected_mode()
 	check(boot.menu.replace_confirmation.visible and boot.game == null, "Creating a world protects the existing save with an overwrite choice")
@@ -74,8 +77,24 @@ func _run() -> void:
 	game = boot.game
 	game.player.set_physics_process(false)
 	check(game.inventory.count_item(7) == 8 and game.world.get_block(Vector3i(21, 5, 21)) == 14, "Continue restores possessions and authored buildings")
+	check(not game.player.has_method("apply_character") and is_equal_approx(game.player.collision.shape.height, 1.8) and is_equal_approx(game.player.visual.head.position.y, 1.575), "Continue uses the fixed character while ignoring retired model data")
 	# One physics tick may replenish air/health after the loading screen fades.
 	check(game.player.health >= 76.0 and game.player.health < 77.0 and game.player.air >= 12.0 and game.player.air < 13.0 and game.player.mined == 9 and game.player.placed == 4, "Continue restores vitals and persistent build statistics")
+	check(game.save_progress() and not saves.load_world().data.player.has("character"), "New saves write the fixed player without obsolete model data")
+	var confined_save: Dictionary = saves.load_world().data
+	confined_save.player.character = {"parameters": {"height": 1.1}}
+	confined_save.player.global_position = Vector3(16.5, 4.02, 21.5)
+	check(saves.save_game(confined_save), "Write a retired-model position that the fixed character cannot occupy")
+	boot._return_to_menu()
+	await frames()
+	boot._continue_game()
+	while boot.game.is_loading:
+		await process_frame
+	game = boot.game
+	game.player.set_physics_process(false)
+	check(game.player._can_occupy(game.player.global_position, false) and game.player.global_position.distance_to(game.world.get_spawn_position()) < 3.0, "A confined retired-model position recovers to a safe fixed-body spawn")
+	check(game.world.get_block(Vector3i(21, 5, 21)) == 14 and game.inventory.count_item(7) == 8, "Safe character recovery preserves world edits and inventory")
+	check(game.save_progress(), "The recovered fixed-body world can be saved")
 	var legacy: Dictionary = saves.load_world().data
 	for key in ["health", "air", "mined", "placed"]:
 		legacy.player.erase(key)

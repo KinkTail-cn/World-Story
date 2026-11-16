@@ -62,7 +62,6 @@ func _ready() -> void:
 	player.document_mined.connect(_on_document_mined)
 	player.vitals_changed.connect(hud.update_vitals)
 	player.rescued.connect(_on_rescued)
-	player.character_changed.connect(hud.inventory_panel.set_character_definition)
 	hud.function_selected.connect(_choose_function)
 	hud.function_cancelled.connect(_close_function_wheel)
 	hud.inventory_panel.close_requested.connect(_close_inventory)
@@ -89,9 +88,6 @@ func _ready() -> void:
 	hud.menu_requested.connect(_save_and_menu)
 	hud.settings_requested.connect(_open_game_settings)
 	hud.home_requested.connect(func(): _resume(); player.return_home())
-	hud.character_requested.connect(_open_character_creator)
-	hud.character_creator.closed.connect(_close_character_creator)
-	hud.character_creator.apply_requested.connect(_apply_character)
 	hud.slot_requested.connect(player.select_slot)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	hud.select_slot(0)
@@ -124,6 +120,10 @@ func _finish_loading() -> void:
 	is_loading = false
 	player.controls_enabled = true
 	player.interaction_blocked = true
+	# A retired small custom body may have been saved below a low ceiling.
+	# The restored fixed body must have valid space before gameplay resumes.
+	if loaded_data.get("player", {}).has("character") and not player._can_occupy(player.global_position, false):
+		player.return_home("已恢复默认人物，并返回安全出生点")
 
 func setup_lifecycle(value, settings, data: Dictionary) -> void:
 	if settings_system != null and settings_system.changed.is_connected(_apply_settings):
@@ -185,9 +185,6 @@ func _notification(what: int) -> void:
 		_save_and_quit()
 
 func _save_and_quit() -> void:
-	if hud.character_creator.visible:
-		hud.character_creator.request_transition(_commit_exit)
-		return
 	if hud.blueprint_workshop.visible:
 		hud.blueprint_workshop._transition(_commit_exit)
 		return
@@ -215,31 +212,6 @@ func _on_rescued() -> void:
 func _open_game_settings() -> void:
 	hud.set_paused(false)
 	game_settings.open(settings_system)
-
-func _open_character_creator() -> void:
-	if is_loading or hud.blueprint_workshop.visible or hud.notebook_panel.visible or game_settings.visible:
-		return
-	_close_inventory()
-	_close_function_wheel()
-	hud.set_paused(false)
-	get_tree().paused = true
-	hud.character_creator.open(player.character_definition, inventory.equipment, inventory.equipment_items)
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-
-func _close_character_creator() -> void:
-	get_tree().paused = false
-	player.interaction_blocked = true
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-
-func _apply_character(data: Dictionary) -> void:
-	var result: Dictionary = player.apply_character(data)
-	if result.ok:
-		hud.inventory_panel.set_character_definition(data)
-		if not save_progress(true):
-			result.message += " · 世界保存失败，请 F5 重试"
-		else:
-			result.message = "已恢复游戏默认人物 · 当前草稿已保留" if data.is_empty() else "已应用并保存当前人物 · 可继续编辑，或关闭返回游戏"
-	hud.character_creator.set_apply_result(result.ok, result.message)
 
 func _confirm_restart() -> void:
 	if restart_confirmation == null:
@@ -277,21 +249,13 @@ func _input(event: InputEvent) -> void:
 	if is_loading:
 		return
 	if event.is_action_pressed("save_game"):
-		var saved := save_progress()
-		if hud.character_creator.visible:
-			hud.character_creator.status_label.text = "世界已保存 · 人物草稿请使用保存按钮或 Ctrl+S" if saved else "世界保存失败，请检查存储空间后重试"
+		save_progress()
 		get_viewport().set_input_as_handled()
 		return
 	if game_settings != null and game_settings.visible:
 		if event.is_action_pressed("pause"):
 			game_settings.close()
 			hud.set_paused(true)
-			get_viewport().set_input_as_handled()
-		return
-	if hud.character_creator.visible:
-		if event.is_action_pressed("pause"):
-			if not hud.character_creator.cancel_edit():
-				hud.character_creator.request_close()
 			get_viewport().set_input_as_handled()
 		return
 	if hud.blueprint_workshop.visible or hud.notebook_panel.visible:
@@ -304,10 +268,6 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		return
 	if hud.inventory_panel.visible and hud.inventory_panel.is_editing_text() and not event.is_action_pressed("pause"):
-		return
-	if event.is_action_pressed("character_creator") and not event.is_echo():
-		_open_character_creator()
-		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("blueprint") and not event.is_echo():
 		if not hud.pause_panel.visible:
@@ -418,7 +378,6 @@ func _on_document_mined(document: Node3D) -> void:
 func _refresh_inventory() -> void:
 	player.select_slot(player.selected_slot)
 	hud.refresh_inventory()
-	hud.inventory_panel.set_character_definition(player.character_definition)
 	if is_instance_valid(player.visual) and is_instance_valid(player.visual.equipment_visuals):
 		player.visual.equipment_visuals.apply_equipment(inventory.equipment, inventory.equipment_items)
 
