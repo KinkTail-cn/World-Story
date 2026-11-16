@@ -63,6 +63,25 @@ func _run() -> void:
 		check(recovered.z < -0.2 and recovered.y > 0.75, "%d: releasing attack returns to forward carry" % id)
 	character.set_held_block(7)
 	check(character.held_item.get_node("Block").visible and character.held_item.tool_visual == null and character.held_item.weapon_visual == null, "Switching back to blocks clears the long-item model")
+	for id in range(1, 21):
+		character.set_held_block(id)
+		var cube: MeshInstance3D = character.held_item.get_node("Block")
+		for state in states.slice(0, 3):
+			for frame in range(90):
+				character.animate(1.0 / 60.0, state[1], state[2], false, state[3], state[3], state[4], state[5])
+			var body_axis: Vector3 = character.body.global_basis.orthonormalized().inverse() * cube.global_basis.y.normalized()
+			var palm: Vector3 = character.right_forearm.to_global(Vector3(0, -0.225, 0))
+			var local_center: Vector3 = character.body.to_local(cube.global_position)
+			check(body_axis.y > 0.999 and absf(cube.scale.x - cube.scale.y) < 0.0001 and absf(cube.scale.y - cube.scale.z) < 0.0001, "Compact block remains upright and cubic: %d %s" % [id, state[0]])
+			check(cube.global_position.distance_to(palm) < 0.27 and local_center.y < 1.1 and local_center.z < -0.2, "Compact block stays by the waist and near the hand: %d %s" % [id, state[0]])
+			check(character.right_arm.rotation.x + character.right_forearm.rotation.x < 0.95, "Carrying a block does not lift the forearm into the old tray pose")
+	for id in [108, 109]:
+		character.set_held_block(id)
+		for frame in range(90):
+			character.animate(1.0 / 60.0, 0.0, false, false)
+		var document: Node3D = character.held_item.document_visual
+		var palm: Vector3 = character.right_forearm.to_global(Vector3(0, -0.225, 0))
+		check(document.global_position.distance_to(palm) < 0.18 and character.body.to_local(document.global_position).y < 1.0, "Paper and notebook stay gripped near the lowered hand")
 	stage.queue_free()
 	await process_frame
 
@@ -81,6 +100,12 @@ func _run() -> void:
 	player.first_person_item.update_third_person_grip(Basis.from_euler(Vector3(1, 2, 0.4)), 1.0)
 	check(first_person_model.transform.is_equal_approx(first_person_transform), "Third-person compensation leaves camera-held models in their own coordinate system")
 	check(player.first_person_item.visible and not player.visual.visible, "First-person tool remains visible")
+	player.inventory.bag[0] = {"id": 1, "count": -1}
+	player.select_slot(0)
+	var fp_cube: Node3D = player.first_person_item.get_node("Block")
+	var fp_pose := fp_cube.transform
+	player.first_person_item.update_third_person_grip(Basis.from_euler(Vector3(1, 2, 0.4)), 1.0)
+	check(fp_cube.transform.is_equal_approx(fp_pose), "Third-person block compensation preserves the camera-held pose")
 	player.free()
 	dry_world.free()
 	await process_frame

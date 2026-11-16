@@ -45,10 +45,7 @@ func _apply_settings() -> void:
 	settings_system.apply(get_viewport())
 
 func _new_game(mode: String = "creative") -> void:
-	var chosen_world_type: String = "infinite"
-	if menu != null and "selected_world_type" in menu:
-		chosen_world_type = menu.selected_world_type
-	_start_game({}, mode, chosen_world_type)
+	_start_game({}, mode, "infinite")
 
 func _continue_game() -> void:
 	var result: Dictionary = save_system.load_world()
@@ -72,8 +69,18 @@ func _start_game(data: Dictionary, mode: String = "creative", world_type: String
 		game.world_type = world_type
 	var terrain = game.get_node("World")
 	terrain.world_type = world_type
-	if data.is_empty() and world_type == "village":
-		terrain.world_seed = menu.selected_world_seed
+	if data.is_empty():
+		terrain.world_seed = menu.selected_world_seed if is_instance_valid(menu) else int(randi() & 0x7fffffff)
+		if world_type == "infinite":
+			terrain.terrain_generation_version = 1
+			terrain.spawn_resolution_pending = true
+	else:
+		var world_data: Dictionary = data.get("world", {})
+		terrain.world_seed = int(world_data.get("world_seed", 1337))
+		terrain.terrain_generation_version = int(world_data.get("terrain_generation_version", 0))
+		terrain.village_generation_version = int(world_data.get("village_generation_version", 0))
+		if world_data.get("spawn_position") is Vector3:
+			terrain.world_spawn = world_data.spawn_position
 	game.setup_lifecycle(save_system, settings_system, data)
 	add_child(game)
 	game.return_to_menu.connect(_return_to_menu)
@@ -81,11 +88,12 @@ func _start_game(data: Dictionary, mode: String = "creative", world_type: String
 
 func _regenerate_game() -> void:
 	var mode: String = game.game_mode
-	var kind: String = game.world_type
 	remove_child(game)
 	game.queue_free()
 	game = null
-	_start_game({}, mode, kind)
+	if is_instance_valid(menu):
+		menu.selected_world_seed = int(randi() & 0x7fffffff)
+	_start_game({}, mode, "infinite")
 
 func _return_to_menu() -> void:
 	get_tree().paused = false

@@ -60,6 +60,9 @@ var damage_grace: float = 0.0
 var _damage_age: float = 10.0
 var _fall_speed: float = 0.0
 var _step_time: float = 0.0
+var flying: bool = false
+var _jump_tap_at: int = -1000
+var _flight_takeoff: float = 0.0
 
 @onready var visual = $Visual
 @onready var rig: Node3D = $CameraRig
@@ -144,6 +147,13 @@ func _resolve_camera_collision() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not controls_enabled or get_tree().paused:
 		return
+	if event.is_action_pressed("jump") and not event.is_echo() and inventory != null and inventory.is_creative():
+		var now := Time.get_ticks_msec()
+		if now - _jump_tap_at <= 300:
+			set_flying(not flying)
+			_jump_tap_at = -1000
+		else:
+			_jump_tap_at = now
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		rig.rotation.y -= event.relative.x * mouse_sensitivity
 		pitch.rotation.x = clampf(pitch.rotation.x - event.relative.y * mouse_sensitivity, -1.25, 1.15)
@@ -164,6 +174,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		select_slot((selected_slot + 1) % 8)
 	if event.is_action_pressed("previous_slot"):
 		select_slot((selected_slot + 7) % 8)
+
+func set_flying(enabled: bool) -> void:
+	if enabled and (inventory == null or not inventory.is_creative()):
+		return
+	if enabled and sitting and not _stand_up():
+		return
+	flying = enabled
+	_flight_takeoff = 0.2 if enabled else 0.0
+	_fall_speed = 0.0
+	velocity.y = 0.0
+	if enabled:
+		swimming = false
 
 ## 显式切换或设置第一人称视角模式
 func set_first_person(enabled: bool) -> void:
@@ -230,6 +252,7 @@ func _sit_on_target() -> bool:
 		message.emit("方块上方或前方空间不足，无法坐下")
 		return false
 	seat_cell = target_cell
+	set_flying(false)
 	sitting = true
 	swimming = false
 	velocity = Vector3.ZERO
@@ -286,6 +309,9 @@ func _update_camera_height() -> void:
 func _physics_process(delta: float) -> void:
 	if world == null or not controls_enabled:
 		return
+	if flying and (inventory == null or not inventory.is_creative()):
+		set_flying(false)
+	_flight_takeoff = maxf(0.0, _flight_takeoff - delta)
 	_update_vitals(delta)
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	if interaction_blocked and not Input.is_action_pressed("mine") and not Input.is_action_pressed("place"):
@@ -310,11 +336,16 @@ func _physics_process(delta: float) -> void:
 	var was_swimming: bool = swimming
 	var rising_out: bool = velocity.y > 0.0 and torso.y > world.SEA_LEVEL - 0.15 and not swimming
 	var swim_threshold: float = 0.12 if swimming else -0.04
-	swimming = torso.y < world.SEA_LEVEL + swim_threshold and world.is_water_at(torso) and not rising_out
+	swimming = not flying and torso.y < world.SEA_LEVEL + swim_threshold and world.is_water_at(torso) and not rising_out
 	if swimming and not was_swimming:
 		velocity.y = maxf(velocity.y, -1.5)
 	submerged = world.is_water_at(global_position + Vector3(0, 1.45, 0))
-	if swimming:
+	if flying:
+		var flight_speed := 20.0 if Input.is_action_pressed("sprint") else 10.0
+		var desired := direction * flight_speed
+		desired.y = Input.get_axis("dive", "jump") * (9.0 if Input.is_action_pressed("sprint") else 6.0)
+		velocity = velocity.move_toward(desired, delta * 45.0)
+	elif swimming:
 		var swim_speed: float = 6.0 if Input.is_action_pressed("sprint") else 4.2
 		if submerged:
 			direction = pitch.global_basis * Vector3(input.x, 0, input.y)
@@ -341,7 +372,9 @@ func _physics_process(delta: float) -> void:
 			velocity.y -= 18.0 * delta
 	_fall_speed = minf(_fall_speed, velocity.y)
 	move_and_slide()
-	if swimming:
+	if flying and is_on_floor() and _flight_takeoff <= 0.0 and not Input.is_action_pressed("jump"):
+		set_flying(false)
+	if swimming or flying:
 		_fall_speed = 0.0
 	elif is_on_floor():
 		if _fall_speed < -13.5:
@@ -400,7 +433,7 @@ func _physics_process(delta: float) -> void:
 	var base_fov: float = 80.0 if first_person else 70.0
 	var target_fov: float = base_fov + (7.5 if is_sprinting else 0.0)
 	camera.fov = lerpf(camera.fov, target_fov, minf(delta * 8.0, 1.0))
-	visual.animate(delta, horizontal_speed, not is_on_floor(), is_swinging, swimming, submerged, sitting, is_sprinting)
+	visual.animate(delta, horizontal_speed, not is_on_floor(), is_swinging, swimming, submerged, sitting, is_sprinting, flying)
 	if active_function == 0 and not interaction_blocked and visual.swing_contact and (target_id > 0 or target_document != null) and _hit_spark_cooldown <= 0.0:
 		_hit_spark_cooldown = 0.28
 		_spawn_hit_spark()
@@ -476,6 +509,7 @@ func take_damage(amount: float, reason: String = "受到伤害") -> bool:
 	return true
 
 func return_home(text: String = "已返回出生点 · 背包物品已保留") -> void:
+	set_flying(false)
 	if sitting:
 		_stand_up(true)
 	var origin: Vector3 = world.get_spawn_position()

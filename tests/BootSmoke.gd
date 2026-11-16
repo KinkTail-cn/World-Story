@@ -1,7 +1,7 @@
 extends SceneTree
 
 func _initialize() -> void:
-	create_timer(15.0).timeout.connect(func(): push_error("BOOT_SMOKE_TIMEOUT"); quit(1))
+	create_timer(25.0).timeout.connect(func(): push_error("BOOT_SMOKE_TIMEOUT"); quit(1))
 	_run.call_deferred()
 
 func _run() -> void:
@@ -16,7 +16,9 @@ func _run() -> void:
 	await process_frame
 	assert(not boot.settings.visible and boot.menu.visible)
 	boot._new_game()
-	for frame in range(90):
+	while boot.game.is_loading:
+		await process_frame
+	for frame in range(4):
 		await physics_frame
 	assert(boot.game != null and boot.game.hud != null and boot.game.hud.blueprint_workshop != null)
 	boot.game._input(_action("blueprint"))

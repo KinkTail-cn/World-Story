@@ -5,7 +5,7 @@ signal block_changed(cell: Vector3i, id: int)
 signal loading_progress(ratio: float, message: String)
 signal loading_started
 signal world_ready
-signal village_spawn_ready(position: Vector3)
+signal spawn_ready(position: Vector3)
 
 # 基础资源与着色器预加载
 const Catalog = preload("res://scripts/content/BlockCatalog.gd")
@@ -53,8 +53,11 @@ const TRIANGLE_ORDER: Array[int] = [0, 2, 1, 0, 3, 2]
 # 地图模式与种子：infinite 无限世界，island 经典岛屿，village 村落启程。
 @export var world_type: String = "island"
 @export var world_seed: int = 1337
+@export var terrain_generation_version: int = 0
 @export var village_generation_version: int = VillageGenerator.VERSION
 var villages = VillageGenerator.new()
+var spawn_resolution_pending: bool = false
+var world_spawn: Vector3 = SPAWN
 var village_spawn_pending: bool = false
 var starting_village: Dictionary = {}
 
@@ -99,7 +102,8 @@ func _ready() -> void:
 	_setup_noise()
 	
 	# 2. 生成经典起源晴风群岛（地形、3棵树木与新手木屋）至一维扁平预分配缓存
-	_init_origin_island()
+	if terrain_generation_version == 0:
+		_init_origin_island()
 	
 	# 3. 初始化地形着色器材质与贴图图集
 	_terrain_material = ShaderMaterial.new()
@@ -169,6 +173,12 @@ func _request_initial_load() -> void:
 func _build_initial_world(revision: int) -> void:
 	if not is_inside_tree() or revision != _loading_revision:
 		return
+	if spawn_resolution_pending:
+		spawn_resolution_pending = false
+		loading_progress.emit(0.02, "正在寻找安全的出生位置...")
+		world_spawn = find_random_spawn()
+		initial_load_position = world_spawn
+		spawn_ready.emit(world_spawn)
 	if village_spawn_pending and village_generation_version > 0:
 		village_spawn_pending = false
 		loading_progress.emit(0.02, "正在选择村庄用地...")
@@ -184,7 +194,7 @@ func _build_initial_world(revision: int) -> void:
 				break
 		if not starting_village.is_empty():
 			initial_load_position = get_spawn_position()
-			village_spawn_ready.emit(initial_load_position)
+			spawn_ready.emit(initial_load_position)
 	loading_progress.emit(0.15, "正在准备附近地形与碰撞...")
 	var center_chunk := _chunk_coord(Vector3i(initial_load_position.floor()))
 	if world_type != "island":
@@ -250,7 +260,7 @@ func _setup_noise() -> void:
 	_detail_noise.seed = world_seed + 99
 	_detail_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	_detail_noise.frequency = 0.035
-	villages.configure(world_seed, _get_procedural_height)
+	villages.configure(world_seed, _get_procedural_height, terrain_generation_version == 0)
 
 
 ## 将经典晴风群岛、三棵自然树木与新手木屋写入原点一维缓存
@@ -410,7 +420,7 @@ func get_block(cell: Vector3i) -> int:
 		return int(chunk_data.blocks[_chunk_local_index(lx, cell.y, lz)])
 		
 	# 若处于起源岛屿坐标范围内，从经典岛屿缓存读取
-	if cx >= 0 and cx < 2 and cz >= 0 and cz < 2 and not _origin_blocks.is_empty():
+	if terrain_generation_version == 0 and cx >= 0 and cx < 2 and cz >= 0 and cz < 2 and not _origin_blocks.is_empty():
 		return int(_origin_blocks[_origin_index(cell)])
 		
 	# 若处于无限世界的远处未加载区块，通过确定性算法即时计算（用于边界相邻遮挡剔除）
@@ -470,6 +480,8 @@ func is_water_at(point: Vector3) -> bool:
 func get_spawn_position() -> Vector3:
 	if not _generated:
 		return to_global(SPAWN)
+	if terrain_generation_version > 0:
+		return to_global(world_spawn)
 	if world_type == "village" and not starting_village.is_empty():
 		var centre: Vector2i = starting_village.centre
 		var preferred := centre + VillageGenerator.rotate_point(Vector2i(-1, 0), starting_village.orientation)
@@ -488,6 +500,36 @@ func get_spawn_position() -> Vector3:
 			if get_block(Vector3i(x, y + 1, z)) == 0 and get_block(Vector3i(x, y + 2, z)) == 0 and get_block(Vector3i(x, y + 3, z)) == 0:
 				return to_global(Vector3(float(x) + 0.5, float(y) + 2.1, float(z) + 0.5))
 	return to_global(SPAWN)
+
+func find_random_spawn() -> Vector3:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = world_seed ^ 0x61c72ab
+	for attempt in range(2048):
+		var reach := 192 if attempt < 128 else 1024
+		var point := Vector2i(rng.randi_range(-reach, reach), rng.randi_range(-reach, reach))
+		var height := _get_procedural_height(point.x, point.y)
+		if height < 4 or height > 10:
+			continue
+		if village_generation_version > 0 and villages.is_managed(point):
+			continue
+		var clear := true
+		for dz in range(-1, 2):
+			for dx in range(-1, 2):
+				if absi(_get_procedural_height(point.x + dx, point.y + dz) - height) > 1:
+					clear = false
+				for dy in range(1, 4):
+					if _get_procedural_block_at(point.x + dx, height + dy, point.y + dz) != 0:
+						clear = false
+		if clear:
+			return Vector3(point.x + 0.5, height + 1.02, point.y + 0.5)
+	# Wide deterministic search for unusual seeds; never fabricate starter land.
+	for z in range(-2048, 2049, 11):
+		for x in range(-2048, 2049, 11):
+			var height := _get_procedural_height(x, z)
+			if height >= 4 and height <= 10 and not villages.is_managed(Vector2i(x, z)):
+				if _get_procedural_block_at(x, height + 1, z) == 0 and _get_procedural_block_at(x, height + 2, z) == 0 and _get_procedural_block_at(x, height + 3, z) == 0:
+					return Vector3(x + 0.5, height + 1.02, z + 0.5)
+	return Vector3(0.5, _get_procedural_height(0, 0) + 1.02, 0.5)
 
 
 ## 放置图纸/蓝图实体
@@ -522,29 +564,40 @@ func save_data() -> Dictionary:
 	for cell in _modified_blocks:
 		mods.append([cell.x, cell.y, cell.z, _modified_blocks[cell]])
 		
-	return {
+	var result := {
 		"world_type": world_type,
 		"world_seed": world_seed,
+		"terrain_generation_version": terrain_generation_version,
+		"spawn_position": world_spawn,
 		"village_generation_version": village_generation_version,
 		"village_home": [starting_village.centre.x, starting_village.centre.y] if not starting_village.is_empty() else [],
 		"modified_blocks": mods,
-		"documents": entries,
-		"blocks": Marshalls.raw_to_base64(_origin_blocks) # 兼容原点数据
+		"documents": entries
 	}
+	if terrain_generation_version == 0:
+		result["blocks"] = Marshalls.raw_to_base64(_origin_blocks)
+	return result
 
 
 ## 加载并恢复世界数据
 func load_data(data: Dictionary, focus_position: Vector3 = SPAWN) -> void:
 	initial_load_position = focus_position
+	spawn_resolution_pending = false
 	village_spawn_pending = false
 	starting_village = {}
 	# Worlds saved before villages keep their original generated landscape.
 	village_generation_version = int(data.get("village_generation_version", 0))
+	terrain_generation_version = int(data.get("terrain_generation_version", 0))
 	if data.has("world_type"):
 		world_type = str(data.world_type)
 	if data.has("world_seed"):
 		world_seed = int(data.world_seed)
 	_setup_noise()
+	if terrain_generation_version > 0:
+		_origin_blocks.clear()
+		world_spawn = data.spawn_position if data.get("spawn_position") is Vector3 else find_random_spawn()
+	elif _origin_blocks.is_empty():
+		_init_origin_island()
 	var village_home: Array = data.get("village_home", [])
 	if village_generation_version > 0 and world_type == "village" and village_home.size() == 2:
 		var home := Vector2i(int(village_home[0]), int(village_home[1]))
@@ -644,7 +697,7 @@ func _generate_chunk_blocks(coord: Vector2i) -> PackedByteArray:
 	blocks.fill(0)
 	
 	# 若为起源晴风群岛范围（(0,0), (1,0), (0,1), (1,1)），直接从经典缓存提取
-	if coord.x >= 0 and coord.x < 2 and coord.y >= 0 and coord.y < 2:
+	if terrain_generation_version == 0 and coord.x >= 0 and coord.x < 2 and coord.y >= 0 and coord.y < 2:
 		for y in range(CHUNK_HEIGHT):
 			for lz in range(CHUNK_SIZE):
 				var wz: int = coord.y * CHUNK_SIZE + lz
@@ -797,15 +850,15 @@ func _get_procedural_block_at(wx: int, y: int, wz: int) -> int:
 ## 计算无限世界任意水平坐标的地表基础高度
 func _get_procedural_height(wx: int, wz: int) -> int:
 	var natural := _get_natural_height(wx, wz)
-	if village_generation_version > 0 and world_type != "island" and Vector2(wx - 15.5, wz - 15.5).length() >= 36:
-		return VillageGenerator.countryside_height(world_seed, Vector2i(wx, wz), natural)
+	if village_generation_version > 0 and world_type != "island" and (terrain_generation_version > 0 or Vector2(wx - 15.5, wz - 15.5).length() >= 36):
+		return VillageGenerator.countryside_height(world_seed, Vector2i(wx, wz), natural, terrain_generation_version == 0)
 	return natural
 
 func _get_natural_height(wx: int, wz: int) -> int:
 	var dist: float = sqrt(pow(float(wx) - 15.5, 2.0) + pow(float(wz) - 15.5, 2.0))
-	if dist < 24.0:
+	if terrain_generation_version == 0 and dist < 24.0:
 		return 1 # 晴风岛环岛内海浅水
-	elif dist < 36.0:
+	elif terrain_generation_version == 0 and dist < 36.0:
 		var t: float = (dist - 24.0) / 12.0
 		var n: float = _terrain_noise.get_noise_2d(float(wx), float(wz))
 		var target_h: float = lerp(1.0, 3.5, (n + 1.0) * 0.5)
@@ -857,7 +910,7 @@ func _get_ore_at(wx: int, y: int, wz: int) -> int:
 func _is_tree_trunk_at(tx: int, tz: int) -> bool:
 	var dist: float = sqrt(pow(float(tx) - 15.5, 2.0) + pow(float(tz) - 15.5, 2.0))
 	# 晴风岛中心 32x32 范围内的树木已由经典函数手工生成，外围才进行程序化生成
-	if dist < 36.0:
+	if terrain_generation_version == 0 and dist < 36.0:
 		return false
 		
 	var cell_size: int = 8
@@ -866,6 +919,8 @@ func _is_tree_trunk_at(tx: int, tz: int) -> bool:
 	
 	# 空间哈希确定该 8x8 单元是否有树（平原区域约 40% 的网格有树）
 	var h: int = int(posmod(gx * 73856093 ^ gz * 19349663, 1000000007))
+	if terrain_generation_version > 0:
+		h = int(posmod(h ^ (world_seed * 83492791), 1000000007))
 	if h % 100 > 40:
 		return false
 		

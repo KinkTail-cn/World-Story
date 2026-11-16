@@ -41,7 +41,7 @@ func _ready() -> void:
 	if is_instance_valid(world) and "world_type" in world:
 		world.world_type = world_type
 		world.village_spawn_pending = world_type == "village" and loaded_data.is_empty()
-		world.village_spawn_ready.connect(func(position: Vector3): player.global_position = position; player.velocity = Vector3.ZERO)
+		world.spawn_ready.connect(func(position: Vector3): player.global_position = position; player.velocity = Vector3.ZERO)
 	if is_instance_valid(world) and is_instance_valid(hud):
 		if world.has_signal("loading_progress"):
 			world.loading_progress.connect(hud.update_loading)

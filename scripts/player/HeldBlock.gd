@@ -10,6 +10,10 @@ const WeaponVisual = preload("res://scripts/player/WeaponVisual.gd")
 const ToolSwing = preload("res://scripts/player/ToolSwing.gd")
 const REST_GRIP_ROTATION := ToolSwing.REST_ROTATION
 const SWING_GRIP_ROTATION := Vector3(-1.3264502, 0.1745329, -0.0872665)
+const BLOCK_CARRY_OFFSET := Vector3(0.01, -0.025, -0.235)
+const BLOCK_CARRY_ROTATION := Vector3(0, -0.12, 0)
+const DOCUMENT_CARRY_OFFSET := Vector3(0.02, -0.03, -0.14)
+const DOCUMENT_CARRY_ROTATION := Vector3(-1.45, 0.10, -0.05)
 
 var block_id: int = 1
 var block_material := ShaderMaterial.new()
@@ -102,18 +106,27 @@ func set_block(id: int) -> void:
 			$Top.position = Vector3(0, 0.136, 0)
 			$Top.rotation_degrees = Vector3.ZERO
 		else:
-			# 第三人称：掌心托握黄金等角立方体姿态
-			# 彻底消除右小臂穿模，顶面以明亮菱形朝上、双侧面呈黄金人字形展开，展现与世界放置方块 100% 同比例的饱满正六面体手办神韵
-			$Block.position = Vector3(0.01, 0.04, 0.06)
-			$Block.rotation_degrees = Vector3(-56, -38, 12)
-			var blk_scale: float = 0.96
+			# The carry anchor is the actual palm. Resolve the resting block pose
+			# against the torso after the shoulder/elbow animation has been applied.
+			$Block.position = BLOCK_CARRY_OFFSET
+			$Block.rotation = BLOCK_CARRY_ROTATION
+			var blk_scale: float = 0.88
 			$Block.scale = Vector3.ONE * blk_scale
 			$Top.scale = (Vector3.ZERO if has_top else Vector3.ONE) * blk_scale
-			$Top.position = Vector3(0.01, 0.04, 0.06)
-			$Top.rotation_degrees = Vector3(-56, -38, 12)
+			$Top.position = BLOCK_CARRY_OFFSET
+			$Top.rotation = BLOCK_CARRY_ROTATION
 
 func update_third_person_grip(torso_basis: Basis, action_weight: float, grip_rotation: Variant = null) -> void:
 	if is_first_person or get_parent() is Camera3D:
+		return
+	if ItemCatalog.is_block(block_id):
+		_compact_grip($Block, torso_basis, action_weight, BLOCK_CARRY_OFFSET, BLOCK_CARRY_ROTATION, 0.88)
+		# The atlas already contains the top face; preserve the legacy top node's
+		# visibility contract without drawing a second overlapping surface.
+		$Top.transform = Transform3D(Basis().scaled(Vector3.ZERO), $Block.position)
+		return
+	if is_instance_valid(document_visual):
+		_compact_grip(document_visual, torso_basis, action_weight, DOCUMENT_CARRY_OFFSET, DOCUMENT_CARRY_ROTATION, 0.7)
 		return
 	var model: Node3D = tool_visual if tool_visual != null else weapon_visual
 	if not is_instance_valid(model):
@@ -126,3 +139,11 @@ func update_third_person_grip(torso_basis: Basis, action_weight: float, grip_rot
 		action = global_basis.orthonormalized().inverse() * torso_basis.orthonormalized() * Basis.from_euler(grip_rotation)
 	var weight := smoothstep(0.0, 1.0, clampf(action_weight, 0.0, 1.0))
 	model.basis = Basis(rest.get_rotation_quaternion().slerp(action.get_rotation_quaternion(), weight)).scaled(Vector3.ONE * 1.05)
+
+func _compact_grip(model: Node3D, torso_basis: Basis, action_weight: float, offset: Vector3, rotation_value: Vector3, uniform_scale: float) -> void:
+	var relative := global_basis.orthonormalized().inverse() * torso_basis.orthonormalized()
+	var rest := relative * Basis.from_euler(rotation_value)
+	var action := Basis.from_euler(rotation_value + Vector3(-0.24, 0, 0))
+	var weight := smoothstep(0.0, 1.0, clampf(action_weight, 0.0, 1.0))
+	model.basis = Basis(rest.get_rotation_quaternion().slerp(action.get_rotation_quaternion(), weight)).scaled(Vector3.ONE * uniform_scale)
+	model.position = (relative * offset).lerp(offset, weight)

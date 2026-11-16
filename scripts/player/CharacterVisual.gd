@@ -7,7 +7,6 @@ const ItemCatalog = preload("res://scripts/inventory/ItemCatalog.gd")
 const ToolSwing = preload("res://scripts/player/ToolSwing.gd")
 const WeaponSwing = preload("res://scripts/player/WeaponSwing.gd")
 const PALM_POSITION := Vector3(0, -0.225, 0)
-const BLOCK_HOLD_POSITION := Vector3(0.12, -0.225, -0.18)
 
 var left_arm: Node3D
 var right_arm: Node3D
@@ -111,7 +110,7 @@ func _ready() -> void:
 	_box(right_lower_leg, Vector3(0, -0.245, 0), Vector3(0.217, 0.18, 0.255), leather)
 	
 	held_item = HELD_BLOCK.instantiate()
-	held_item.position = BLOCK_HOLD_POSITION
+	held_item.position = PALM_POSITION
 	right_forearm.add_child(held_item)
 	equipment_visuals = EQUIPMENT_VISUALS.new()
 	add_child(equipment_visuals)
@@ -123,15 +122,19 @@ func set_held_block(id: int) -> void:
 		swing_phase = 0.0
 		swing = 0.0
 		swing_contact = false
-	held_item.position = PALM_POSITION if ItemCatalog.is_tool_item(id) or ItemCatalog.is_weapon(id) else BLOCK_HOLD_POSITION
+	held_item.position = PALM_POSITION
 	held_item.set_block(id)
 	held_item.update_third_person_grip(body.global_basis, swing, _compute_swing_motion().get("grip_rotation"))
 
 func play_place() -> void:
 	place_time = 0.25
 
-func animate(delta: float, speed: float, airborne: bool, mining: bool, swimming: bool = false, submerged: bool = false, sitting: bool = false, sprinting: bool = false) -> void:
+func animate(delta: float, speed: float, airborne: bool, mining: bool, swimming: bool = false, submerged: bool = false, sitting: bool = false, sprinting: bool = false, flying: bool = false) -> void:
 	equipment_visuals.update_motion(delta, speed, airborne, swimming, sitting)
+	if flying:
+		speed = 0.0
+		airborne = false
+		sprinting = false
 	var previous_left: Vector3 = left_arm.rotation
 	var previous_right: Vector3 = right_arm.rotation
 	
@@ -320,7 +323,7 @@ func animate(delta: float, speed: float, airborne: bool, mining: bool, swimming:
 	var has_held: bool = held_item != null and held_item.visible
 	var long_item: bool = has_held and (held_item.tool_visual != null or held_item.weapon_visual != null)
 	if has_held and not mining and place_time <= 0.0 and swing <= 0.05:
-		target_right_arm_x = lerpf(0.48, 0.58 + arm_sin * 0.06 * sprint_blend, run_blend) if long_item else lerpf(0.68, 0.92 + arm_sin * 0.22 * sprint_blend, run_blend)
+		target_right_arm_x = lerpf(0.48, 0.58 + arm_sin * 0.06 * sprint_blend, run_blend) if long_item else lerpf(0.18 + idle_arm_x * 0.35, 0.28 + arm_sin * 0.05, run_blend)
 		target_right_arm_z = 0.08 if long_item else 0.06
 	
 	# 方块放置动作权重（柔和工匠手势：单手微俯轻按下按，消除冲拳）
@@ -363,7 +366,7 @@ func animate(delta: float, speed: float, airborne: bool, mining: bool, swimming:
 	var right_elbow_sprint: float = 1.15 + arm_sin * 0.35
 	var target_right_elbow: float = lerpf(idle_elbow, lerpf(right_elbow_walk, right_elbow_sprint, sprint_blend), run_blend)
 	if has_held and not mining and place_time <= 0.0:
-		target_right_elbow = lerpf(0.85, 0.92 + sin(phase) * 0.035 * sprint_blend, run_blend) if long_item else lerpf(0.95, 1.15 + sin(phase) * 0.06 * sprint_blend, run_blend)
+		target_right_elbow = lerpf(0.85, 0.92 + sin(phase) * 0.035 * sprint_blend, run_blend) if long_item else lerpf(0.30, 0.46 + arm_sin * 0.035, run_blend)
 	
 	var target_act_elbow: float = s_motion.elbow if swing > 0.02 else (1.10 + place_blend * 0.12)
 	target_right_elbow = lerpf(target_right_elbow, target_act_elbow, action_weight)

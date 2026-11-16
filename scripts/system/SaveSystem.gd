@@ -98,6 +98,10 @@ func world_validation_error(data: Dictionary) -> String:
 		return "存档的游戏模式或世界类型无效"
 	if world.has("world_seed") and not _integer(world.world_seed):
 		return "存档的世界种子无效"
+	if world.has("terrain_generation_version") and (not _integer(world.terrain_generation_version) or world.terrain_generation_version < 0 or world.terrain_generation_version > 1):
+		return "存档的地形生成版本无效"
+	if world.has("spawn_position") and (not world.spawn_position is Vector3 or not world.spawn_position.is_finite()):
+		return "存档的出生位置无效"
 	if world.has("village_generation_version") and (not _integer(world.village_generation_version) or world.village_generation_version < 0 or world.village_generation_version > 1):
 		return "存档的村庄生成版本无效"
 	if world.has("village_home") and (not world.village_home is Array or world.village_home.size() not in [0, 2] or not world.village_home.all(_integer)):
@@ -135,6 +139,8 @@ func world_validation_error(data: Dictionary) -> String:
 			return "存档的采集或建造计数无效"
 	if player.has("first_person") and not player.first_person is bool:
 		return "存档的视角模式无效"
+	if player.has("flying") and not player.flying is bool:
+		return "存档的飞行状态无效"
 	for key in ["health", "air"]:
 		if player.has(key):
 			var value: Variant = player[key]
@@ -263,6 +269,7 @@ func save_player(player) -> Dictionary:
 		if node != null:
 			result[part + "_rotation"] = _encode(node.rotation)
 	result["first_person"] = bool(_read_value(player, "first_person", false))
+	result["flying"] = bool(_read_value(player, "flying", false))
 	result["health"] = float(_read_value(player, "health", 100.0))
 	result["air"] = float(_read_value(player, "air", 18.0))
 	result["mined"] = int(_read_value(player, "mined", 0))
@@ -301,6 +308,8 @@ func apply_player(player, data: Dictionary) -> void:
 			player.set_first_person(bool(data.first_person))
 		else:
 			_write_value(player, "first_person", bool(data.first_person))
+	if player is Object and player.has_method("set_flying"):
+		player.set_flying(bool(data.get("flying", false)) and inventory != null and inventory.is_creative())
 
 func _read_value(target, property: String, fallback):
 	if target == null:
@@ -359,6 +368,6 @@ func _decode(value, field: String = ""):
 		return result
 	# JSON numbers are floats. Restore discrete item/voxel fields while keeping
 	# physical centers and other continuous values as floats.
-	if value is float and _integer(value) and field in ["id", "count", "grid_size", "mat", "size", "pos", "cells", "schema_version", "source_item_id", "emblem", "village_generation_version", "village_home"]:
+	if value is float and _integer(value) and field in ["id", "count", "grid_size", "mat", "size", "pos", "cells", "schema_version", "source_item_id", "emblem", "village_generation_version", "village_home", "terrain_generation_version"]:
 		return int(value)
 	return value

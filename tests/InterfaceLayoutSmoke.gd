@@ -55,15 +55,11 @@ func _run() -> void:
 		fits(menu.get_node("ModePopup/Card"), "World creation choices fit")
 		if dimensions == Vector2i(1280, 800):
 			await capture("world-creation")
-		menu.world_type_box.select(2)
-		menu._describe_choices()
 		await frames()
-		fits(menu.get_node("ModePopup/Card"), "Village creation fits with the seed field")
-		fits(menu.get_node("ModePopup/Card/Body/Seed"), "Village seed input remains reachable")
+		fits(menu.get_node("ModePopup/Card"), "Random world creation fits with the seed field")
+		fits(menu.get_node("ModePopup/Card/Body/Seed"), "World seed input remains reachable")
 		if dimensions == Vector2i(800, 500):
-			await capture("village-creation-small")
-		menu.world_type_box.select(0)
-		menu._describe_choices()
+			await capture("random-world-small")
 		menu._close_mode_popup()
 		menu.show_error("无法读取存档，请检查存档备份。".repeat(5))
 		await frames()

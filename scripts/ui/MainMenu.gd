@@ -11,15 +11,14 @@ signal quit_requested
 @onready var continue_button: Button = $Center/Card/Body/Buttons/Continue
 @onready var mode_popup: Control = $ModePopup
 @onready var mode_box: OptionButton = $ModePopup/Card/Body/Mode
-@onready var world_type_box: OptionButton = $ModePopup/Card/Body/WorldType
 
-var selected_world_type: String = "infinite"
-var selected_world_seed: int = 1337
+var selected_world_seed: int = 0
 var save_system
 var replace_confirmation: ConfirmationDialog
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	selected_world_seed = int(randi() & 0x7fffffff)
 	UI.apply(self, true)
 	$Center/Card.add_theme_stylebox_override("panel", UI.box(Color.TRANSPARENT, Color.TRANSPARENT, 0, Vector2.ZERO))
 	UI.label($Center/Card/Body/Title, 64, UI.LIGHT, true)
@@ -42,11 +41,7 @@ func _ready() -> void:
 	continue_button.visible = _has_save()
 	mode_box.add_item("创造模式  ·  自由建造")
 	mode_box.add_item("生存模式  ·  采集与制作")
-	world_type_box.add_item("无限世界  ·  大陆与群岛")
-	world_type_box.add_item("晴风岛  ·  经典岛屿")
-	world_type_box.add_item("村庄启程  ·  随机建筑群")
 	mode_box.item_selected.connect(_describe_choices)
-	world_type_box.item_selected.connect(_describe_choices)
 	$Center/Card/Body/Buttons/NewGame.pressed.connect(_open_mode_popup)
 	continue_button.pressed.connect(func(): continue_game.emit())
 	$Center/Card/Body/Buttons/Settings.pressed.connect(func(): settings_requested.emit())
@@ -83,13 +78,9 @@ func _style_actions() -> void:
 	$Center/Card/Body/Buttons/NewGame.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 
 func _describe_choices(_index: int = 0) -> void:
-	$ModePopup/Card/Body/ModeDescription.text = "采集材料、制作工具，留意生命与潜水空气。" if mode_box.selected == 1 else "无限建材，专心建造与设计，尽情实现你的灵感。"
-	$ModePopup/Card/Body/WorldDescription.text = "一座适合专心建造的有限岛屿，有海岸、树林与小屋。" if world_type_box.selected == 1 else "从晴风岛出发，探索不断延伸的大陆与群岛。"
-	var village := world_type_box.selected == 2
-	$ModePopup/Card/Body/Seed.visible = village
+	$ModePopup/Card/Body/ModeDescription.text = "采集材料、制作工具，留意生命与潜水空气。" if mode_box.selected == 1 else "无限建材与自由飞行，专心建造和实现灵感。"
+	$ModePopup/Card/Body/WorldDescription.text = "随机生成地形和安全出生位置，村落自然分布在世界各处。"
 	$ModePopup/Card/Body/SeedError.visible = false
-	if village:
-		$ModePopup/Card/Body/WorldDescription.text = "从村落广场启程；16–28 栋房屋围绕街巷、院落和菜地自然聚集。"
 
 func refresh() -> void:
 	continue_button.visible = _has_save()
@@ -116,13 +107,12 @@ func _close_mode_popup() -> void:
 	$Center/Card/Body/Buttons/NewGame.grab_focus()
 
 func _start_selected_mode() -> void:
-	if world_type_box.selected == 2:
-		var seed_text: String = $ModePopup/Card/Body/Seed.text.strip_edges()
-		if not seed_text.is_empty() and (not seed_text.is_valid_int() or int(seed_text) < -2147483648 or int(seed_text) > 2147483647):
-			$ModePopup/Card/Body/SeedError.text = "请输入 32 位整数种子，或留空随机生成。"
-			$ModePopup/Card/Body/SeedError.show()
-			return
-		selected_world_seed = int(seed_text) if not seed_text.is_empty() else int(randi() & 0x7fffffff)
+	var seed_text: String = $ModePopup/Card/Body/Seed.text.strip_edges()
+	if not seed_text.is_empty() and (not seed_text.is_valid_int() or int(seed_text) < -2147483648 or int(seed_text) > 2147483647):
+		$ModePopup/Card/Body/SeedError.text = "请输入 32 位整数种子，或留空随机生成。"
+		$ModePopup/Card/Body/SeedError.show()
+		return
+	selected_world_seed = int(seed_text) if not seed_text.is_empty() else int(randi() & 0x7fffffff)
 	if _has_save():
 		if replace_confirmation == null:
 			replace_confirmation = ConfirmationDialog.new()
@@ -139,7 +129,6 @@ func _start_selected_mode() -> void:
 
 func _launch_selected_mode() -> void:
 	var mode := "survival" if mode_box.selected == 1 else "creative"
-	selected_world_type = ["infinite", "island", "village"][maxi(0, world_type_box.selected)]
 	mode_popup.visible = false
 	new_game.emit(mode)
 

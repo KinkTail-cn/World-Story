@@ -159,7 +159,7 @@ func _run() -> void:
 	var previous_game = boot.game
 	boot._regenerate_game()
 	check(boot.game != previous_game and previous_game.is_queued_for_deletion(), "Regeneration replaces game child")
-	check(boot.game.game_mode == "survival" and boot.game.world_type == "island", "Regeneration retains mode and world type")
+	check(boot.game.game_mode == "survival" and boot.game.world_type == "infinite", "Regeneration retains the play mode and starts a random infinite world")
 	check(boot.restarted_data.is_empty(), "Regeneration starts a fresh world")
 	boot.free()
 	viewport.free()

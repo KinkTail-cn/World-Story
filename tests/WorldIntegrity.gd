@@ -48,7 +48,7 @@ func _run() -> void:
 	await frames(8)
 	Input.action_release("move_forward")
 	Input.action_release("jump")
-	check(game.is_loading and game.player.global_position == start, "Loading overlay freezes movement and gravity")
+	check(game.is_loading and not game.player.controls_enabled and game.player.velocity == Vector3.ZERO and (game.player.global_position == start or game.player.global_position == game.world.world_spawn), "Loading blocks movement and gravity while assigning the resolved spawn")
 	check(not game.player.first_person and not game.hud.blueprint_workshop.visible, "Loading blocks view and workshop hotkeys")
 	check(not game.save_progress(), "Loading cannot save a partially initialized session")
 	while game.is_loading:
@@ -72,7 +72,11 @@ func _run() -> void:
 	game.player.set_physics_process(false)
 	var x := 400
 	var z := 400
-	var ground: int = game.world._get_procedural_height(x, z) + 1
+	var ground := 1
+	for y in range(23, 0, -1):
+		if game.world.get_block(Vector3i(x, y, z)) not in [0, 4] and game.world.get_block(Vector3i(x, y + 1, z)) == 0 and game.world.get_block(Vector3i(x, y + 2, z)) == 0 and game.world.get_block(Vector3i(x, y + 3, z)) == 0:
+			ground = y + 1
+			break
 	game.player.global_position = Vector3(x + 0.5, ground + 0.01, z + 0.5)
 	check(game.save_progress(), "Save a far-world position")
 	boot._return_to_menu()

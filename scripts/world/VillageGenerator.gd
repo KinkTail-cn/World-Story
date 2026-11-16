@@ -20,14 +20,16 @@ const HEIGHT := 24
 
 var world_seed: int = 1337
 var sample_height: Callable
+var protect_origin: bool = true
 var _regions: Dictionary = {}
 var _region_order: Array[Vector2i] = []
 var _compiled: Dictionary = {}
 var _compiled_order: Array[Vector2i] = []
 
-func configure(seed_value: int, height_sampler: Callable) -> void:
+func configure(seed_value: int, height_sampler: Callable, preserve_origin: bool = true) -> void:
 	world_seed = seed_value
 	sample_height = height_sampler
+	protect_origin = preserve_origin
 	_regions.clear()
 	_region_order.clear()
 	_compiled.clear()
@@ -43,9 +45,9 @@ static func rural_centre(seed_value: int, region: Vector2i) -> Vector2i:
 	var value := seed_for(seed_value, region)
 	return region * REGION_SIZE + Vector2i(148 + value % 25, 148 + (value / 97) % 25)
 
-static func countryside_height(seed_value: int, point: Vector2i, natural: int) -> int:
+static func countryside_height(seed_value: int, point: Vector2i, natural: int, preserve_origin: bool = true) -> int:
 	var region := region_at(point)
-	if region != Vector2i.ZERO and seed_for(seed_value, region) % 100 >= 72:
+	if (region != Vector2i.ZERO or not preserve_origin) and seed_for(seed_value, region) % 100 >= 72:
 		return natural
 	var centre := rural_centre(seed_value, region)
 	var distance := Vector2(point - centre).length()
@@ -244,7 +246,7 @@ func plan_for_region(region: Vector2i) -> Dictionary:
 	var result: Dictionary = {}
 	var regional_seed := seed_for(world_seed, region)
 	# Empty regions and unsuitable coast/mountain sites remain natural terrain.
-	if region == Vector2i.ZERO or regional_seed % 100 < 72:
+	if (protect_origin and region == Vector2i.ZERO) or regional_seed % 100 < 72:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = regional_seed ^ 0x59a37
 		var prototype := make_layout(regional_seed, Vector2i.ZERO, 5, false)
@@ -260,7 +262,7 @@ func plan_for_region(region: Vector2i) -> Dictionary:
 				centre = rural_centre(world_seed, region)
 			var site: Rect2i = prototype.bounds
 			site.position += centre
-			if site.grow(BLEND_MARGIN).intersects(Rect2i(-8, -8, 48, 48)):
+			if protect_origin and site.grow(BLEND_MARGIN).intersects(Rect2i(-8, -8, 48, 48)):
 				continue
 			var level := _site_level(site)
 			if level < 0:

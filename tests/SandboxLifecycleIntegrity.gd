@@ -32,8 +32,8 @@ func _run() -> void:
 	boot.settings_system = settings
 	root.add_child(boot)
 	current_scene = boot
-	boot.menu.selected_world_type = "island"
-	boot._new_game("survival")
+	# Legacy island fixture exercises old buildings and custom-player recovery.
+	boot._start_game({}, "survival", "island")
 	while boot.game.is_loading:
 		await process_frame
 	var game = boot.game

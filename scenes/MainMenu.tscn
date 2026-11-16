@@ -164,19 +164,15 @@ autowrap_mode = 3
 text = "无限建材，专心建造与设计，尽情实现你的灵感。"
 
 [node name="WorldTitle" type="Label" parent="ModePopup/Card/Body"]
-text = "02    世界类型"
-
-[node name="WorldType" type="OptionButton" parent="ModePopup/Card/Body"]
-custom_minimum_size = Vector2(0, 44)
+text = "02    随机世界"
 
 [node name="WorldDescription" type="Label" parent="ModePopup/Card/Body"]
 autowrap_mode = 3
-text = "从晴风岛出发，探索不断延伸的大陆与群岛。"
+text = "随机生成地形和安全出生位置，村落自然分布在世界各处。"
 
 [node name="Seed" type="LineEdit" parent="ModePopup/Card/Body"]
-visible = false
 custom_minimum_size = Vector2(0, 40)
-placeholder_text = "村庄种子（留空随机，相同种子生成相同世界）"
+placeholder_text = "世界种子（留空随机，相同种子可复现世界）"
 max_length = 11
 clear_button_enabled = true
 

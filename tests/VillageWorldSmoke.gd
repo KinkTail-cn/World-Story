@@ -28,16 +28,18 @@ func _run() -> void:
 	boot.settings_system = Settings.new("user://village_settings.json")
 	root.add_child(boot)
 	current_scene = boot
-	boot.menu.world_type_box.select(2)
 	boot.menu._describe_choices()
-	check(boot.menu.get_node("ModePopup/Card/Body/Seed").visible, "Village creation exposes the reproducible seed")
+	check(boot.menu.get_node("ModePopup/Card/Body/Seed").visible and not boot.menu.has_node("ModePopup/Card/Body/WorldType"), "Random creation exposes a reproducible seed without preset world choices")
 	boot.menu.get_node("ModePopup/Card/Body/Seed").text = "invalid"
 	boot.menu._start_selected_mode()
 	check(boot.game == null and boot.menu.get_node("ModePopup/Card/Body/SeedError").visible, "Invalid seeds do not start or replace a world")
 	boot.menu.get_node("ModePopup/Card/Body/Seed").text = "1337"
-	boot.menu._start_selected_mode()
+	# Keep the previous village-start format as a legacy fixture. New menu
+	# worlds are covered by RandomWorldFlightSmoke and never force a village start.
+	boot.menu.selected_world_seed = 1337
+	boot._start_game({}, "creative", "village")
 	var game = boot.game
-	check(game != null and game.world_type == "village" and game.is_loading, "The actual new-world action starts village mode behind loading")
+	check(game != null and game.world_type == "village" and game.is_loading, "Legacy village sessions still load behind the loading screen")
 	while game.is_loading:
 		await process_frame
 	var world = game.world
