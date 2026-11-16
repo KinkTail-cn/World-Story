@@ -21,6 +21,8 @@ var top_material := ShaderMaterial.new()
 var document_visual: Node3D
 var tool_visual: Node3D
 var weapon_visual: Node3D
+var utility_visual: Node3D
+var item_data: Dictionary = {}
 var is_first_person: bool = false
 
 func _ready() -> void:
@@ -30,10 +32,11 @@ func _ready() -> void:
 	$Top.material_override = top_material
 	set_block(block_id)
 
-func set_block(id: int) -> void:
+func set_block(id: int, data: Dictionary = {}) -> void:
 	block_id = id
+	item_data = data.duplicate(true)
 	var is_blk: bool = ItemCatalog.is_block(id)
-	visible = is_blk or id in [108, 109] or ItemCatalog.is_tool_item(id) or ItemCatalog.is_weapon(id)
+	visible = is_blk or id in [108, 109] or ItemCatalog.is_tool_item(id) or ItemCatalog.is_weapon(id) or ItemCatalog.is_facility(id) or ItemCatalog.is_supply(id)
 	$Block.visible = is_blk
 	if document_visual != null:
 		remove_child(document_visual)
@@ -47,6 +50,22 @@ func set_block(id: int) -> void:
 		remove_child(weapon_visual)
 		weapon_visual.queue_free()
 		weapon_visual = null
+	if utility_visual != null:
+		remove_child(utility_visual)
+		utility_visual.queue_free()
+		utility_visual = null
+	var custom := preload("res://scripts/blueprint/BlueprintEquipment.gd").is_custom_item(data) and not ItemCatalog.is_equipment(id)
+	if custom or ItemCatalog.is_facility(id) or ItemCatalog.is_supply(id):
+		var visual = preload("res://scripts/player/UtilityVisual.gd").new()
+		add_child(visual)
+		visual.build(id, data, ItemCatalog.is_facility(id) or ItemCatalog.is_supply(id))
+		if ItemCatalog.is_tool_item(id): tool_visual = visual
+		elif ItemCatalog.is_weapon(id): weapon_visual = visual
+		else: utility_visual = visual
+		if is_first_person or get_parent() is Camera3D:
+			visual.rotation_degrees = Vector3(-45, 30, -20) if utility_visual == null else Vector3.ZERO
+			visual.scale = Vector3.ONE * 0.95
+		return
 		
 	if id in [108, 109]:
 		document_visual = DocumentVisual.new()
@@ -127,6 +146,9 @@ func update_third_person_grip(torso_basis: Basis, action_weight: float, grip_rot
 		return
 	if is_instance_valid(document_visual):
 		_compact_grip(document_visual, torso_basis, action_weight, DOCUMENT_CARRY_OFFSET, DOCUMENT_CARRY_ROTATION, 0.7)
+		return
+	if is_instance_valid(utility_visual):
+		_compact_grip(utility_visual, torso_basis, action_weight, BLOCK_CARRY_OFFSET, BLOCK_CARRY_ROTATION, 0.7)
 		return
 	var model: Node3D = tool_visual if tool_visual != null else weapon_visual
 	if not is_instance_valid(model):

@@ -6,6 +6,7 @@ signal crafted(id: int, count: int)
 const ItemCatalog = preload("res://scripts/inventory/ItemCatalog.gd")
 const BlueprintEquipment = preload("res://scripts/blueprint/BlueprintEquipment.gd")
 const EquipmentSets = preload("res://scripts/content/EquipmentSets.gd")
+const VillageItems = preload("res://scripts/content/VillageItems.gd")
 const BAG_SIZE := 24
 const EQUIPMENT_SIZE := 7
 const CRAFT_SIZE := 3
@@ -78,7 +79,7 @@ func can_move(source_group: String, source_index: int, target_group: String, tar
 		elif target_group == "equipment":
 			return ItemCatalog.is_equipment(item_id) and ItemCatalog.equipment_slot(item_id) == target_index
 		elif target_group == "crafting":
-			return ItemCatalog.is_block(item_id) and target_index >= 0 and target_index < CRAFT_SIZE
+			return (ItemCatalog.is_block(item_id) or ItemCatalog.is_supply(item_id)) and target_index >= 0 and target_index < CRAFT_SIZE
 		return false
 	if not _valid_slot(source_group, source_index) or not _valid_slot(target_group, target_index):
 		return false
@@ -98,7 +99,7 @@ func can_move(source_group: String, source_index: int, target_group: String, tar
 		return target_group == "bag" and _can_add_to_bag(source.id, 1, target_index)
 	if target_group == "crafting":
 		var target: Dictionary = crafting[target_index]
-		return ItemCatalog.is_block(source.id) and (source_group == "crafting" or target.id == 0 or (target.id == source.id and target.count < STACK_MAX))
+		return (ItemCatalog.is_block(source.id) or ItemCatalog.is_supply(source.id)) and not source.has("blueprint") and (source_group == "crafting" or target.id == 0 or (target.id == source.id and target.count < STACK_MAX))
 	if source_group == "crafting" and target_group == "bag":
 		return _can_add_to_bag(source["id"], source["count"], target_index)
 	if source_group == "bag" and target_group == "bag":
@@ -109,10 +110,10 @@ func is_unique_blueprint(slot: Dictionary) -> bool:
 	return is_unique_document(slot)
 
 func is_unique_document(slot: Dictionary) -> bool:
-	return ItemCatalog.is_document(int(slot.get("id", 0))) and (slot.has("notes") or slot.has("blueprints") or slot.has("custom_name"))
+	return slot.has("blueprint") or (ItemCatalog.is_document(int(slot.get("id", 0))) and (slot.has("notes") or slot.has("blueprints") or slot.has("custom_name")))
 
 func _stack_limit(id: int) -> int:
-	return 1 if ItemCatalog.is_equipment(id) or ItemCatalog.is_tool_item(id) or ItemCatalog.is_weapon(id) else STACK_MAX
+	return 1 if ItemCatalog.is_equipment(id) or ItemCatalog.is_tool_item(id) or ItemCatalog.is_weapon(id) or ItemCatalog.is_facility(id) or id in [609, 610] else STACK_MAX
 
 func _empty_bag_slot() -> int:
 	for i in bag.size():
@@ -336,7 +337,7 @@ func _can_add_to_bag(id: int, amount: int, index: int) -> bool:
 		return true
 	if is_unique_blueprint(slot):
 		return false
-	var maximum := 1 if (ItemCatalog.is_equipment(id) or ItemCatalog.is_tool_item(id) or ItemCatalog.is_weapon(id)) else STACK_MAX
+	var maximum := _stack_limit(id)
 	if slot["id"] == id and slot["count"] != -1 and slot["count"] + amount <= maximum:
 		return true
 	if slot["id"] == id and slot["count"] == -1 and not ItemCatalog.is_equipment(id) and not ItemCatalog.is_tool_item(id) and not ItemCatalog.is_weapon(id):
@@ -395,7 +396,43 @@ func craft_blueprint(blueprint: Dictionary) -> Dictionary:
 	next_bag[target] = item
 	bag = next_bag
 	changed.emit()
-	return {"ok": true, "index": target, "item": item.duplicate(true), "message": "已制作：" + str(item.custom_name) + " · B 打开背包，右键或双击穿戴"}
+	crafted.emit(int(item.id), 1)
+	return {"ok": true, "index": target, "item": item.duplicate(true), "message": "已制作：" + str(item.custom_name) + (" · 在背包中穿戴" if ItemCatalog.is_equipment(item.id) else " · 放入快捷栏使用")}
+
+func add_snapshot(item: Dictionary) -> bool:
+	if not ItemCatalog.is_valid_item(int(item.get("id", 0))) or int(item.get("count", 0)) < 1:
+		return false
+	if int(item.count) > _stack_limit(int(item.id)) or (is_unique_document(item) and int(item.count) != 1):
+		return false
+	if not item.has("blueprint") and not is_unique_document(item) and _stack_limit(item.id) > 1:
+		return add_item(int(item.id), int(item.count))
+	var target := _empty_bag_slot()
+	if target < 0:
+		return false
+	bag[target] = item.duplicate(true)
+	changed.emit()
+	return true
+
+func exchange(costs: Dictionary, outputs: Array) -> bool:
+	var staged = get_script().new(mode)
+	staged.bag = bag.duplicate(true)
+	if not is_creative():
+		for id in costs:
+			var remaining := int(costs[id])
+			for index in staged.bag.size():
+				var slot: Dictionary = staged.bag[index]
+				if slot.id == int(id) and not staged.is_unique_document(slot):
+					var taken := mini(remaining, int(slot.count))
+					remaining -= taken
+					slot.count -= taken
+					if slot.count == 0: staged.bag[index] = _empty()
+				if remaining == 0: break
+			if remaining > 0: return false
+	for item in outputs:
+		if not staged.add_snapshot(item): return false
+	bag = staged.bag
+	changed.emit()
+	return true
 
 func add_document_item(id: int, data: Dictionary) -> bool:
 	if not ItemCatalog.is_document(id):
@@ -580,4 +617,7 @@ static func recipe_definitions() -> Dictionary:
 	}
 	for key in EquipmentSets.RECIPES:
 		recipes[key] = {"id": EquipmentSets.RECIPES[key], "count": 1, "name": EquipmentSets.title(EquipmentSets.RECIPES[key])}
+	for key in VillageItems.RECIPES:
+		recipes[key] = VillageItems.RECIPES[key].duplicate()
+		recipes[key]["name"] = ItemCatalog.title(recipes[key].id)
 	return recipes

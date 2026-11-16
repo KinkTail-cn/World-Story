@@ -3,6 +3,7 @@ extends Control
 signal close_requested
 signal item_used(id: int)
 signal slot_requested(index: int)
+signal use_requested(index: int)
 
 const SlotScript = preload("res://scripts/ui/InventorySlot.gd")
 const SlotScene = preload("res://scenes/InventorySlot.tscn")
@@ -91,12 +92,18 @@ func _ready() -> void:
 	equipment_style.item_selected.connect(func(_index: int): _update_set_button(); _populate_creative_items())
 	wear_set.pressed.connect(_wear_set)
 	var categories := ["all", "blocks", "equipment", "tools", "weapons", "docs"]
+	for category in ["facilities", "supplies"]:
+		var button := Button.new()
+		button.text = "生活设施" if category == "facilities" else "材料与食物"
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		%CategoryBar.add_child(button)
+		categories.append(category)
 	var buttons := %CategoryBar.get_children()
 	for i in categories.size():
 		var key: String = categories[i]
 		_category_buttons[key] = buttons[i]
 		buttons[i].pressed.connect(_select_category.bind(key))
-	buttons[0].text = "全部 %d" % (BLOCKS_LIST.size() + EQUIP_LIST.size() + TOOLS_LIST.size() + WEAPONS_LIST.size() + DOCS_LIST.size())
+	buttons[0].text = "全部 %d" % (BLOCKS_LIST.size() + EQUIP_LIST.size() + TOOLS_LIST.size() + WEAPONS_LIST.size() + DOCS_LIST.size() + ItemCatalog.VillageItems.NAMES.size())
 	buttons[2].text = "装备 %d" % EQUIP_LIST.size()
 	resized.connect(_layout_card)
 	_setup_preview()
@@ -238,9 +245,13 @@ func _populate_creative_items() -> void:
 		"tools": items = TOOLS_LIST.duplicate()
 		"weapons": items = WEAPONS_LIST.duplicate()
 		"docs": items = DOCS_LIST.duplicate()
+		"facilities": items = ItemCatalog.VillageItems.FACILITIES.duplicate()
+		"supplies": items = ItemCatalog.VillageItems.SUPPLIES.duplicate()
 		_:
 			for list in [BLOCKS_LIST, EQUIP_LIST, TOOLS_LIST, WEAPONS_LIST, DOCS_LIST]:
 				items.append_array(list)
+			items.append_array(ItemCatalog.VillageItems.FACILITIES)
+			items.append_array(ItemCatalog.VillageItems.SUPPLIES)
 	var term := search.text.strip_edges().to_lower()
 	for id in items:
 		if not selected_style.is_empty() and EquipmentSets.style(id) != selected_style:

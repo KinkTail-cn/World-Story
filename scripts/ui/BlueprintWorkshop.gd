@@ -20,6 +20,9 @@ const Presets = preload("res://scripts/blueprint/BlueprintPresets.gd")
 const InspectorScene = preload("res://scenes/BlueprintInspector.tscn")
 const BlueprintRenderer = preload("res://scripts/player/BlueprintEquipmentVisual.gd")
 const UI = preload("res://scripts/ui/UIStyle.gd")
+const Items = preload("res://scripts/inventory/ItemCatalog.gd")
+var product_selector: OptionButton
+var product_template: Button
 
 const CATEGORIES: Array[String] = [
 	"头部装备", "盔甲", "裤甲", "鞋子", "手套", "披风", "腰带", "武器", "工具", "道具摆件"
@@ -171,6 +174,14 @@ func _ready() -> void:
 	_setup_editor()
 	_build_category_buttons()
 	_bind_palette_buttons()
+	var sources := $LeftDrawer/Panel/Margin/VBox
+	var source_scroll := ScrollContainer.new()
+	source_scroll.name = "SourceScroll"
+	source_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	source_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sources.get_parent().add_child(source_scroll)
+	sources.reparent(source_scroll)
+	sources.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UI.button(save_btn, "primary", true)
 	UI.button(craft_btn, "secondary", true)
 	UI.button(new_design_btn, "secondary", true)
@@ -596,6 +607,7 @@ func _focus_camera_on_category(category: String, immediate: bool = false) -> voi
 			target_center = Vector3(0, 0.50, 0)
 			target_dist = 2.35
 			target_pitch = -0.10
+	if category == "道具摆件": target_yaw = PI
 
 	if immediate:
 		current_look_center = target_center
@@ -876,8 +888,49 @@ func _draw_ball_gizmo() -> void:
 
 func _build_category_buttons() -> void:
 	for cat in CATEGORIES:
-		category_selector.add_item("部位：" + cat)
+		category_selector.add_item("类别：" + ("物品与设施" if cat == "道具摆件" else cat))
 	category_selector.item_selected.connect(func(index: int): _select_category(CATEGORIES[index], false))
+	product_selector = OptionButton.new()
+	product_selector.name = "ProductSelector"
+	product_selector.clip_text = true
+	var controls := $LeftDrawer/Panel/Margin/VBox
+	controls.add_child(product_selector)
+	controls.move_child(product_selector, category_selector.get_index() + 1)
+	product_selector.item_selected.connect(func(index: int):
+		if blueprint != null:
+			blueprint.target_item_id = product_selector.get_item_id(index)
+			_refresh_crafting()
+	)
+	product_template = Button.new()
+	product_template.name = "ProductTemplate"
+	product_template.text = "载入基础造型"
+	controls.add_child(product_template)
+	controls.move_child(product_template, product_selector.get_index() + 1)
+	product_template.pressed.connect(func(): _transition(_open_product_template))
+	product_selector.hide()
+	product_template.hide()
+
+func _refresh_products() -> void:
+	if product_selector == null: return
+	var ids := EquipmentDesign.product_ids(current_category)
+	product_selector.visible = not ids.is_empty()
+	product_template.visible = not ids.is_empty()
+	product_selector.clear()
+	for id in ids:
+		product_selector.add_item("制作：" + Items.title(id), id)
+	if not ids.is_empty() and blueprint != null:
+		var index := ids.find(blueprint.target_item_id)
+		product_selector.select(maxi(0, index))
+		blueprint.target_item_id = ids[maxi(0, index)]
+
+func _open_product_template() -> void:
+	if product_selector.item_count == 0: return
+	var data := preload("res://scripts/blueprint/UtilityPresets.gd").design(product_selector.get_selected_id())
+	blueprint = BlueprintDataScript.from_dictionary(data)
+	if manager != null: manager.current = blueprint
+	name_edit.text = blueprint.name
+	_bind_edit_session()
+	_select_category(blueprint.category, true)
 
 
 func _select_category(cat: String, immediate: bool = false) -> void:
@@ -892,6 +945,12 @@ func _select_category(cat: String, immediate: bool = false) -> void:
 		blueprint.category = cat
 	if category_selector != null:
 		category_selector.select(maxi(0, CATEGORIES.find(cat)))
+	_refresh_products()
+	%PreviewPose.disabled = cat not in EquipmentDesign.CATEGORIES
+	if inspector != null:
+		inspector.anchor_box.visible = cat in EquipmentDesign.CATEGORIES
+		inspector.get_node("%Motion").disabled = cat not in EquipmentDesign.CATEGORIES
+		inspector.get_node("%Motion").tooltip_text = "穿戴和动作预览时查看飘动" if cat in EquipmentDesign.CATEGORIES else "工具与生活设施保持固定形状"
 	
 	_rebuild_template()
 	_focus_camera_on_category(cat, immediate)
@@ -1202,6 +1261,7 @@ func _build_template_for(category: String) -> void:
 	# 隐藏手持施工方块，角色自然直立
 	if is_instance_valid(real_character.held_item):
 		real_character.held_item.visible = false
+	real_character.visible = category in EquipmentDesign.CATEGORIES
 	
 	# 实时同步玩家当时的防具装备（智能隐藏当前正在制作设计的部位）
 	if is_instance_valid(real_character.equipment_visuals):
@@ -1801,7 +1861,7 @@ func _refresh_crafting() -> void:
 	var data := _design_snapshot()
 	var error := EquipmentDesign.validation_error(data)
 	craft_btn.disabled = inventory == null or not error.is_empty()
-	craft_btn.tooltip_text = error if not error.is_empty() else "制作当前部位的装备，随后在 B 背包中双击或右键穿戴"
+	craft_btn.tooltip_text = error if not error.is_empty() else ("制作后在背包中穿戴" if current_category in EquipmentDesign.CATEGORIES else "制作所选类别的成品，放入快捷栏使用")
 	if not error.is_empty():
 		cost_label.text = error
 		return
@@ -1811,9 +1871,9 @@ func _refresh_crafting() -> void:
 	for id in costs:
 		var count: int = inventory.count_item(int(id)) if inventory != null else 0
 		if creative:
-			lines.append("%s×%d" % [EquipmentDesign.Blocks.title(int(id)), costs[id]])
+			lines.append("%s×%d" % [Items.title(int(id)), costs[id]])
 		else:
-			lines.append("%s %d/%s" % [EquipmentDesign.Blocks.title(int(id)), costs[id], "∞" if count < 0 else str(count)])
+			lines.append("%s %d/%s" % [Items.title(int(id)), costs[id], "∞" if count < 0 else str(count)])
 	cost_label.text = ("免费制作 · " if creative else "用料/库存 · ") + " · ".join(lines)
 
 func _craft_pressed() -> void:
@@ -2020,7 +2080,7 @@ func _selection_changed() -> void:
 		block.node.material_overlay = highlight if edit_session.selection.has(str(block.get("uid", ""))) else null
 
 func _refresh_parts() -> void:
-	if not is_node_ready() or not has_node("LeftDrawer/Panel/Margin/VBox/PartList"):
+	if not is_node_ready() or not has_node("%PartList"):
 		return
 	_refreshing_parts = true
 	var scroll: int = %PartList.get_v_scroll_bar().value

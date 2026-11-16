@@ -133,17 +133,17 @@ func _run() -> void:
 	panel.open()
 	await process_frame
 	
-	# 验证全部道具列表 (64)
+	# 验证全部道具列表 (83)
 	panel._select_category("all")
 	await process_frame
-	assert(panel.creative_grid.get_child_count() == 64, "全量道具应为 64 种（包含 5 种武器与 28 件装备）")
+	assert(panel.creative_grid.get_child_count() == 83, "全量物品包含原有武器装备及新增村庄设施与生活材料，共 83 种")
 	
 	# 验证独立武器分类 (5)
 	panel._select_category("weapons")
 	await process_frame
 	assert(panel.creative_grid.get_child_count() == 5, "武器专属分类下应恰好展示 5 种特色武器")
 	test_root.queue_free()
-	print("✓ 创造模式面板武器分类与 64 种全道具集成验证通过")
+	print("✓ 创造模式面板武器分类与 83 种全道具集成验证通过")
 	
 	# 7. 验证现代物品介绍窗口结构化数据获取与各字段契约
 	print("7. 验证物品介绍窗口数据结构与品质系统...")

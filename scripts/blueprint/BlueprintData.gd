@@ -16,6 +16,7 @@ var voxels: Array[Dictionary] = []
 var created_at: String = ""
 var schema_version: int = SCHEMA_VERSION
 var source_item_id: int = 0
+var target_item_id: int = 0
 var _next_id: int = 1
 
 const VOXEL_SIZE: float = 0.13
@@ -128,7 +129,7 @@ func to_dictionary() -> Dictionary:
 		var position := Geometry.vector(voxel.get("pos"))
 		item["pos"] = [int(position.x), int(position.y), int(position.z)]
 		voxel_data.append(item)
-	return {"schema_version": schema_version, "source_item_id": source_item_id, "name": name, "category": category, "grid_size": grid_size, "cells": cells.duplicate(), "voxels": voxel_data, "created_at": created_at}
+	return {"schema_version": schema_version, "source_item_id": source_item_id, "target_item_id": target_item_id, "name": name, "category": category, "grid_size": grid_size, "cells": cells.duplicate(), "voxels": voxel_data, "created_at": created_at}
 
 static func _serialized(value: Variant) -> Variant:
 	if value is Dictionary:
@@ -152,6 +153,7 @@ static func from_dictionary(value: Dictionary):
 	var result = script.new(str(value.get("name", "未命名蓝图")), str(value.get("category", "道具摆件")), int(value.get("grid_size", 8)))
 	result.created_at = str(value.get("created_at", ""))
 	result.source_item_id = int(value.get("source_item_id", 0))
+	result.target_item_id = int(value.get("target_item_id", 0))
 	var source: Array = value.get("cells", [])
 	result.cells.clear()
 	for index in range(result.grid_size * result.grid_size):
@@ -185,6 +187,8 @@ static func validation_error(value: Dictionary) -> String:
 			return "蓝图名称或类别格式无效"
 	if value.has("source_item_id") and not _integer(value.source_item_id):
 		return "蓝图来源 ID 无效"
+	if value.has("target_item_id") and (not _integer(value.target_item_id) or value.target_item_id < 0):
+		return "制作物品类别无效"
 	if value.has("schema_version") and (not _integer(value.schema_version) or value.schema_version < 1 or value.schema_version > SCHEMA_VERSION):
 		return "蓝图版本不受支持"
 	if value.has("grid_size") and (not _integer(value.grid_size) or int(value.grid_size) not in [8, 12, 16]):

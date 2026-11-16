@@ -69,9 +69,15 @@ func set_item(id: int, data: Dictionary = {}) -> void:
 		add_child(doc)
 	elif BlueprintEquipment.is_custom_item(data):
 		block_instance.visible = false
-		var custom = BlueprintVisual.new()
-		add_child(custom)
-		custom.build(data.blueprint)
+		if ItemCatalog.is_equipment(id):
+			var custom = BlueprintVisual.new()
+			add_child(custom)
+			custom.build(data.blueprint)
+		else:
+			var custom = preload("res://scripts/player/UtilityVisual.gd").new()
+			add_child(custom)
+			custom.build(id, data, true)
+			custom.rotation.y = PI
 	elif EquipmentSets.is_new(id):
 		block_instance.visible = false
 		var equipment = SetVisual.new()
@@ -90,6 +96,12 @@ func set_item(id: int, data: Dictionary = {}) -> void:
 		var weapon_vis: Node3D = WeaponVisual.new()
 		weapon_vis.set_weapon(id, true)
 		add_child(weapon_vis)
+	elif ItemCatalog.is_facility(id) or ItemCatalog.is_supply(id):
+		block_instance.visible = false
+		var utility = preload("res://scripts/player/UtilityVisual.gd").new()
+		add_child(utility)
+		utility.build(id, data, true)
+		utility.rotation.y = PI
 
 func _build_equipment_visual(id: int) -> void:
 	var equip_node := Node3D.new()

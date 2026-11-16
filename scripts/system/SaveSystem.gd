@@ -102,6 +102,10 @@ func world_validation_error(data: Dictionary) -> String:
 		return "存档的地形生成版本无效"
 	if world.has("spawn_position") and (not world.spawn_position is Vector3 or not world.spawn_position.is_finite()):
 		return "存档的出生位置无效"
+	if world.has("custom_spawn") and not world.custom_spawn is bool:
+		return "存档的返回点状态无效"
+	var facility_error := preload("res://scripts/world/FacilityData.gd").validation_error(world.get("village_life", {}))
+	if not facility_error.is_empty(): return facility_error
 	if world.has("village_generation_version") and (not _integer(world.village_generation_version) or world.village_generation_version < 0 or world.village_generation_version > 1):
 		return "存档的村庄生成版本无效"
 	if world.has("village_home") and (not world.village_home is Array or world.village_home.size() not in [0, 2] or not world.village_home.all(_integer)):
@@ -176,15 +180,15 @@ func _inventory_valid(data: Dictionary) -> bool:
 				if count != 0:
 					return false
 				continue
-			if not (Items.is_block(id) or Items.is_document(id) or Items.is_equipment(id) or Items.is_tool_item(id) or Items.is_weapon(id)):
+			if not Items.is_valid_item(id):
 				return false
 			if count != -1 and (count < 1 or count > 64):
 				return false
-			if (Items.is_equipment(id) or Items.is_tool_item(id) or Items.is_weapon(id)) and count != 1:
+			if (Items.is_equipment(id) or Items.is_tool_item(id) or Items.is_weapon(id) or Items.is_facility(id) or id in [609, 610]) and count != 1:
 				return false
 			if data.get("mode", "creative") == "survival" and count == -1:
 				return false
-			if group == "crafting" and (id > 20 or count < 1):
+			if group == "crafting" and (not (Items.is_block(id) or Items.is_supply(id)) or count < 1):
 				return false
 			if group == "equipment_items" and (index >= 7 or Items.equipment_slot(id) != index):
 				return false
@@ -368,6 +372,6 @@ func _decode(value, field: String = ""):
 		return result
 	# JSON numbers are floats. Restore discrete item/voxel fields while keeping
 	# physical centers and other continuous values as floats.
-	if value is float and _integer(value) and field in ["id", "count", "grid_size", "mat", "size", "pos", "cells", "schema_version", "source_item_id", "emblem", "village_generation_version", "village_home", "terrain_generation_version"]:
+	if value is float and _integer(value) and field in ["id", "count", "grid_size", "mat", "size", "pos", "cells", "schema_version", "source_item_id", "target_item_id", "emblem", "village_generation_version", "village_home", "terrain_generation_version", "growth_stage", "turns", "fuel", "next_id"]:
 		return int(value)
 	return value

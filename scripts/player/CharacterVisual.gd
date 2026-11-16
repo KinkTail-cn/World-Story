@@ -115,7 +115,7 @@ func _ready() -> void:
 	equipment_visuals = EQUIPMENT_VISUALS.new()
 	add_child(equipment_visuals)
 
-func set_held_block(id: int) -> void:
+func set_held_block(id: int, data: Dictionary = {}) -> void:
 	if held_item.block_id != id:
 		swing_cycle_running = false
 		swing_cycle_time = 0.0
@@ -123,7 +123,7 @@ func set_held_block(id: int) -> void:
 		swing = 0.0
 		swing_contact = false
 	held_item.position = PALM_POSITION
-	held_item.set_block(id)
+	held_item.set_block(id, data)
 	held_item.update_third_person_grip(body.global_basis, swing, _compute_swing_motion().get("grip_rotation"))
 
 func play_place() -> void:

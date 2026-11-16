@@ -198,7 +198,7 @@ func redo() -> bool:
 
 func _restore(state: Dictionary) -> void:
 	var restored = Data.from_dictionary(state.data)
-	for key in ["name", "category", "grid_size", "cells", "voxels", "created_at", "source_item_id", "schema_version"]:
+	for key in ["name", "category", "grid_size", "cells", "voxels", "created_at", "source_item_id", "target_item_id", "schema_version"]:
 		blueprint.set(key, restored.get(key))
 	selection.assign(state.selection)
 	blueprint.ensure_ids()

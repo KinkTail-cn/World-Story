@@ -74,7 +74,9 @@ func _run() -> void:
 	paused = false
 	await frames()
 	check(atmosphere.elapsed > stopped, "Cloud drift resumes after unpausing")
-	check(game.world.save_data() == snapshot, "Sky motion does not modify terrain or save data")
+	var current: Dictionary = game.world.save_data()
+	current.village_life.clock = snapshot.village_life.clock
+	check(current == snapshot, "Sky motion preserves terrain and persistent content while the independent facility clock runs")
 	var fog_color := environment.fog_light_color
 	var fog_density := environment.fog_density
 	var fog_sky := environment.fog_sky_affect

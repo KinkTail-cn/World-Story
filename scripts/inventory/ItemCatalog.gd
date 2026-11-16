@@ -2,8 +2,11 @@ extends RefCounted
 
 const BlockCatalog = preload("res://scripts/content/BlockCatalog.gd")
 const EquipmentSets = preload("res://scripts/content/EquipmentSets.gd")
+const VillageItems = preload("res://scripts/content/VillageItems.gd")
 
 static func title(id: int) -> String:
+	if VillageItems.NAMES.has(id):
+		return VillageItems.NAMES[id]
 	if is_block(id):
 		return BlockCatalog.title(id)
 	if EquipmentSets.is_new(id):
@@ -35,6 +38,8 @@ static func title(id: int) -> String:
 		_: return "空气"
 
 static func color(id: int) -> Color:
+	if VillageItems.NAMES.has(id):
+		return Color("c0a679") if is_facility(id) else Color("d8be7c")
 	if is_block(id):
 		return BlockCatalog.color(id)
 	if EquipmentSets.is_new(id):
@@ -69,6 +74,15 @@ static func is_block(id: int) -> bool:
 
 static func is_document(id: int) -> bool:
 	return id == 108 or id == 109
+
+static func is_facility(id: int) -> bool:
+	return id in VillageItems.FACILITIES
+
+static func is_supply(id: int) -> bool:
+	return id in VillageItems.SUPPLIES
+
+static func is_valid_item(id: int) -> bool:
+	return is_block(id) or is_equipment(id) or is_tool_item(id) or is_weapon(id) or is_document(id) or VillageItems.NAMES.has(id)
 
 ## 判断是否为工具（ID 201 ~ 209）
 static func is_tool_item(id: int) -> bool:
@@ -187,6 +201,8 @@ static func weapon_knockback(id: int) -> float:
 
 ## 获取物品分类标签
 static func item_category(id: int) -> String:
+	if is_facility(id): return "生活设施"
+	if is_supply(id): return "食物" if VillageItems.food_health(id) > 0 else "生活材料"
 	if is_weapon(id): return "近战武器"
 	if is_tool_item(id): return "开采工具"
 	if is_equipment(id): return "灵蕴防具"
@@ -217,6 +233,8 @@ static func rarity_color(id: int) -> Color:
 
 ## 沉浸式奇幻背景故事文本
 static func description(id: int) -> String:
+	if VillageItems.NAMES.has(id):
+		return VillageItems.description(id)
 	if EquipmentSets.is_new(id):
 		return EquipmentSets.description(id)
 	match id:
@@ -266,11 +284,17 @@ static func description(id: int) -> String:
 		17: return "岁月沉积而成的金黄沙岩，具有沙漠文明的沧桑韵味。"
 		18: return "极高山巅常年积压的纯净雪块，寒气四溢，质感洁白。"
 		19: return "火山熔岩与海水瞬间交融而成的黑曜石，硬度登峰造极。"
-		20: return "配备精细量尺与木工工具的操作台，创造世界的起点。"
+		20: return "可交互的制作台，瞄准后按 R 打开蓝图设计或基础合成。"
 		_: return "一种蕴含着无限可能的奇妙方块物品。"
 
 ## 物品操作与使用提示
 static func usage_tip(id: int) -> String:
+	if id == 20:
+		return "右键放置 · 已放置后瞄准按 R，打开蓝图设计与合成"
+	if is_facility(id):
+		return "右键放置 · 瞄准后 R 或右键使用 · 左键拆除回收"
+	if is_supply(id):
+		return "右键食用，恢复生命" if VillageItems.food_health(id) > 0 else "可用于合成、设施加工或村民交易"
 	if is_weapon(id):
 		return "【鼠标左键】挥动与采集，战斗功能尚未开放\n【拖拽】放入快捷栏切换手持武器"
 	elif is_tool_item(id):
@@ -320,6 +344,10 @@ static func get_item_info(id: int) -> Dictionary:
 	elif is_block(id):
 		attrs.append({"icon": "🧱", "label": "方块硬度", "val": "%.2f 秒" % BlockCatalog.mine_time(id), "color": Color("#e3b341")})
 		attrs.append({"icon": "📦", "label": "堆叠上限", "val": "64 个/格", "color": Color("#8b949e")})
+	elif id in [501, 506]:
+		attrs.append({"icon": "□", "label": "储物容量", "val": "%d 格" % (24 if id == 501 else 12), "color": Color("#79c0ff")})
+	elif VillageItems.food_health(id) > 0:
+		attrs.append({"icon": "♥", "label": "恢复生命", "val": "%d 点" % int(VillageItems.food_health(id)), "color": Color("#7ee787")})
 		
 	return {
 		"id": id,
@@ -345,6 +373,8 @@ static func draw_icon(canvas: Control, id: int, origin: Vector2, extent: float) 
 		_draw_real_tool(canvas, id, origin, extent)
 	elif is_weapon(id):
 		_draw_real_weapon(canvas, id, origin, extent)
+	elif VillageItems.NAMES.has(id):
+		_draw_isometric_box(canvas, origin, extent * 0.3, extent * 0.18, extent * 0.3, color(id))
 
 
 # -----------------------------------------------------------------------------

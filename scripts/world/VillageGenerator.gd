@@ -408,8 +408,6 @@ static func compile(plan: Dictionary, height_sampler: Callable) -> Dictionary:
 			for x in range(yard.position.x, yard.end.x):
 				var border := x in [yard.position.x, yard.end.x - 1] or z in [yard.position.y, yard.end.y - 1]
 				_stamp(columns, Vector3i(x, level, z), 13 if border else (2 if index % 2 == 0 else 1))
-				if index % 2 == 0 and not border and (x - yard.position.x) % 2 == 0 and z % 3 != 0:
-					_stamp(columns, Vector3i(x, level + 1, z), 4)
 		if index % 2 == 1:
 			var tree: Vector2i = yard.get_center()
 			for y in range(1, 5):

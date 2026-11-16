@@ -32,6 +32,7 @@ var vitals_panel: PanelContainer
 var health_bar: ProgressBar
 var air_bar: ProgressBar
 var air_row: HBoxContainer
+var facility_panel: Control
 
 @onready var slots: HBoxContainer = $Root/Bottom/HotbarDock/Margin/Hotbar if has_node("Root/Bottom/HotbarDock/Margin/Hotbar") else $Root/Bottom/Hotbar
 @onready var target: Label = $Root/Aim/Target
@@ -192,6 +193,9 @@ func show_message(text: String) -> void:
 			notebook_panel.get_node("Card/Body/Notice").text = text
 		elif inventory_panel.visible:
 			inventory_panel.show_feedback(text)
+		elif facility_panel != null and facility_panel.visible:
+			facility_panel.status.text = text
+			facility_panel.status.add_theme_color_override("font_color", Color("aa5144"))
 	if pause_panel.visible:
 		$Root/Pause/Panel/Margin/Content/Description.text = text
 		_layout.call_deferred()
@@ -225,7 +229,7 @@ func close_design() -> void:
 	design_closed.emit()
 
 func any_modal_visible() -> bool:
-	return pause_panel.visible or inventory_panel.visible or function_wheel.visible or blueprint_workshop.visible or notebook_panel.visible
+	return pause_panel.visible or inventory_panel.visible or function_wheel.visible or blueprint_workshop.visible or notebook_panel.visible or (facility_panel != null and facility_panel.visible)
 
 func _create_sandbox_ui() -> void:
 	hurt_overlay = ColorRect.new()

@@ -10,6 +10,7 @@ signal document_mined(document: Node3D)
 signal vitals_changed(health: float, air: float, hurt: bool)
 signal sound_requested(kind: String)
 signal rescued
+signal facility_requested(key: String)
 
 const Catalog = preload("res://scripts/content/BlockCatalog.gd")
 const HELD_BLOCK = preload("res://scenes/HeldBlock.tscn")
@@ -24,6 +25,7 @@ const CAMERA_HIDE_DISTANCE: float = 1.2
 var world: Node3D
 var inventory: RefCounted
 var target_document: Node3D
+var target_facility: String = ""
 var selected_slot: int = 0
 var first_person: bool = false
 var mouse_sensitivity: float = 0.0025
@@ -63,6 +65,7 @@ var _step_time: float = 0.0
 var flying: bool = false
 var _jump_tap_at: int = -1000
 var _flight_takeoff: float = 0.0
+var _seat_input_grace: float = 0.0
 
 @onready var visual = $Visual
 @onready var rig: Node3D = $CameraRig
@@ -167,6 +170,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		select_function(1)
 	if event.is_action_pressed("interact") and not event.is_echo() and target_document != null:
 		document_requested.emit(target_document)
+	elif event.is_action_pressed("interact") and not event.is_echo():
+		if not target_facility.is_empty(): facility_requested.emit(target_facility)
+		elif target_id == 20: facility_requested.emit("workbench")
 	for slot in range(8):
 		if event.is_action_pressed("slot_%d" % (slot + 1)):
 			select_slot(slot)
@@ -191,7 +197,7 @@ func set_flying(enabled: bool) -> void:
 func set_first_person(enabled: bool) -> void:
 	first_person = enabled
 	visual.visible = not first_person
-	first_person_item.visible = first_person and (ItemCatalog.is_block(selected_item_id()) or ItemCatalog.is_document(selected_item_id()) or ItemCatalog.is_tool_item(selected_item_id()) or ItemCatalog.is_weapon(selected_item_id()))
+	first_person_item.visible = first_person and (ItemCatalog.is_block(selected_item_id()) or ItemCatalog.is_document(selected_item_id()) or ItemCatalog.is_tool_item(selected_item_id()) or ItemCatalog.is_weapon(selected_item_id()) or ItemCatalog.is_facility(selected_item_id()) or ItemCatalog.is_supply(selected_item_id()))
 	_update_camera_height()
 	camera.fov = 80.0 if first_person else 70.0
 	_emit_status()
@@ -200,13 +206,25 @@ func set_first_person(enabled: bool) -> void:
 func select_slot(slot: int) -> void:
 	selected_slot = clampi(slot, 0, 7)
 	var id: int = selected_item_id()
-	visual.set_held_block(id)
-	first_person_item.set_block(id)
-	first_person_item.visible = first_person and (ItemCatalog.is_block(id) or ItemCatalog.is_document(id) or ItemCatalog.is_tool_item(id) or ItemCatalog.is_weapon(id))
+	var item: Dictionary = inventory.get_slot("bag", selected_slot) if inventory != null else {}
+	visual.set_held_block(id, item)
+	first_person_item.set_block(id, item)
+	first_person_item.visible = first_person and (ItemCatalog.is_block(id) or ItemCatalog.is_document(id) or ItemCatalog.is_tool_item(id) or ItemCatalog.is_weapon(id) or ItemCatalog.is_facility(id) or ItemCatalog.is_supply(id))
 	selection_changed.emit(selected_slot)
 
 func selected_item_id() -> int:
 	return inventory.get_slot("bag", selected_slot).id if inventory != null else selected_slot + 1
+
+func use_food_slot(index: int) -> bool:
+	if inventory == null or health >= 100: return false
+	var id: int = inventory.get_slot("bag", index).id
+	var healing: float = ItemCatalog.VillageItems.food_health(id)
+	if healing <= 0: return false
+	health = minf(100, health + healing)
+	inventory.consume_slot(index)
+	vitals_changed.emit(health, air, false)
+	sound_requested.emit("craft")
+	return true
 
 func select_function(function: int) -> void:
 	interaction_blocked = true
@@ -294,6 +312,25 @@ func _stand_up(force: bool = false) -> bool:
 	function_changed.emit(active_function, sitting)
 	return true
 
+func sit_at_facility(record: Dictionary) -> bool:
+	if sitting and not _stand_up(): return false
+	set_flying(false)
+	sitting = true
+	_seat_input_grace = 0.18
+	active_function = 1
+	swimming = false
+	seat_cell = Vector3i(record.support[0], record.support[1], record.support[2])
+	global_position = Vector3(record.position[0], record.position[1] + 0.53, record.position[2])
+	velocity = Vector3.ZERO
+	collision.shape = sitting_shape
+	collision.position.y = 0.65
+	visual.position.y = -0.5625
+	visual.rotation.y = float(record.get("turns", 0)) * PI * 0.5
+	visual.animate(0.0, 0.0, false, false, false, false, true)
+	_update_camera_height()
+	function_changed.emit(active_function, sitting)
+	return true
+
 ## Sweep from the player's center to the entire over-shoulder camera position.
 func _update_camera_height() -> void:
 	rig.position = Vector3(0.0, 0.95 if sitting else (1.6 if first_person else 1.62), 0.0)
@@ -312,6 +349,7 @@ func _physics_process(delta: float) -> void:
 	if flying and (inventory == null or not inventory.is_creative()):
 		set_flying(false)
 	_flight_takeoff = maxf(0.0, _flight_takeoff - delta)
+	_seat_input_grace = maxf(0.0, _seat_input_grace - delta)
 	_update_vitals(delta)
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	if interaction_blocked and not Input.is_action_pressed("mine") and not Input.is_action_pressed("place"):
@@ -319,7 +357,7 @@ func _physics_process(delta: float) -> void:
 	if sitting:
 		if world.get_block(seat_cell) == 0:
 			_stand_up(true)
-		elif input.length_squared() > 0.0 or Input.is_action_just_pressed("jump"):
+		elif input.length_squared() > 0.0 or (Input.is_action_just_pressed("jump") and _seat_input_grace <= 0.0):
 			_stand_up()
 		if sitting:
 			velocity = Vector3.ZERO
@@ -406,6 +444,7 @@ func _physics_process(delta: float) -> void:
 			
 	var is_swinging: bool = active_function == 0 and not sitting and not interaction_blocked and (Input.is_action_pressed("mine") or swing_timer > 0.0)
 	var is_mining_target: bool = is_swinging and (target_id > 0 or target_document != null)
+	is_mining_target = is_mining_target or (is_swinging and not target_facility.is_empty())
 	
 	if is_swinging or visual.swing_cycle_running:
 		visual.rotation.y = lerp_angle(visual.rotation.y, rig.rotation.y, minf(delta * 15.0, 1.0))
@@ -414,7 +453,7 @@ func _physics_process(delta: float) -> void:
 		mining_time += delta
 		var held_id: int = selected_item_id()
 		var speed_mult: float = ItemCatalog.get_mining_speed(held_id, target_id)
-		var required_time: float = 0.35 if target_document != null else (Catalog.mine_time(target_id) / speed_mult)
+		var required_time: float = 0.65 if not target_facility.is_empty() else (0.35 if target_document != null else (Catalog.mine_time(target_id) / speed_mult))
 		
 		if mining_time >= required_time:
 			_mine()
@@ -567,7 +606,9 @@ func _update_target() -> void:
 	var previous := target_cell
 	target_id = 0
 	target_document = null
+	target_facility = ""
 	outline.visible = false
+	outline.scale = Vector3.ONE
 	var center := get_viewport().get_visible_rect().size * 0.5
 	query.from = camera.project_ray_origin(center)
 	query.to = query.from + camera.project_ray_normal(center) * 12.0
@@ -581,6 +622,9 @@ func _update_target() -> void:
 		mining_time = 0.0
 		return
 	target_cell = Vector3i((point - normal * 0.01).floor())
+	if hit.collider.has_meta("facility"):
+		target_facility = str(hit.collider.get_meta("facility"))
+		return
 	if hit.collider.has_meta("document"):
 		target_document = hit.collider
 		target_cell = target_document.support_cell
@@ -598,6 +642,17 @@ func _update_target() -> void:
 
 func _mine() -> void:
 	if sitting:
+		return
+	if not target_facility.is_empty():
+		var key := target_facility
+		var result: Dictionary = world.life.pickup(key, inventory)
+		if result.ok:
+			mined += 1
+			target_facility = ""
+			sound_requested.emit("mine")
+		elif world.life.records.get(key, {}).get("kind", "") != "resident":
+			facility_requested.emit(key)
+		mining_time = 0.0
 		return
 	if target_document != null:
 		var doc: Node3D = target_document
@@ -628,6 +683,13 @@ func _mine() -> void:
 		return
 	var cell := target_cell
 	var id: int = target_id
+	if world.get("life") != null:
+		var support: String = world.life.supporting(cell)
+		if not support.is_empty():
+			world.life.last_message = "请先回收上方设施；容器中有物品时请先取出。"
+			facility_requested.emit(support)
+			mining_time = 0.0
+			return
 	if inventory != null and not inventory.can_add_item(id, 1):
 		message.emit("背包已满，方块保留在原处")
 		mining_time = 0.0
@@ -646,10 +708,33 @@ func _mine() -> void:
 func _place() -> void:
 	if sitting:
 		return
+	if not target_facility.is_empty() and not Input.is_key_pressed(KEY_SHIFT):
+		facility_requested.emit(target_facility)
+		return
+	if target_id == 20 and not Input.is_key_pressed(KEY_SHIFT):
+		facility_requested.emit("workbench")
+		return
 	if target_document != null:
 		document_requested.emit(target_document)
 		return
 	var id: int = selected_item_id()
+	if ItemCatalog.VillageItems.food_health(id) > 0:
+		use_food_slot(selected_slot)
+		return
+	if ItemCatalog.is_facility(id):
+		if target_id <= 0 or target_normal != Vector3i.UP: return
+		var player_box := AABB(global_position + Vector3(-0.36, 0, -0.36), Vector3(0.72, 1.8, 0.72))
+		var result: Dictionary = world.life.place(inventory.get_slot("bag", selected_slot), target_cell, player_box, roundi(rig.rotation.y / (PI * 0.5)) + 2)
+		if result.ok:
+			inventory.consume_slot(selected_slot)
+			placed += 1
+			place_delay = maxf(place_delay, 0.25)
+			visual.play_place()
+			sound_requested.emit("place")
+		else:
+			message.emit(str(result.message))
+			world.life.last_message = ""
+		return
 	if ItemCatalog.is_document(id):
 		if target_id <= 0 or target_normal != Vector3i.UP:
 			message.emit("请瞄准方块顶面放置纸笔")

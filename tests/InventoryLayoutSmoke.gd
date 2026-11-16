@@ -117,7 +117,7 @@ func _run() -> void:
 	panel.tab_crafting.pressed.emit()
 	await _layout_frames()
 	_set_search(panel.recipe_search, "铁镐")
-	check(panel.recipe_list.item_count == 2, "Recipe search finds both current and legacy iron pickaxe recipes")
+	check(panel.recipe_list.item_count == 3, "Recipe search finds ore, legacy and newly smelted ingot recipes for the iron pickaxe")
 	_set_search(panel.recipe_search, "")
 	await _layout_frames()
 	var first_recipe: Rect2 = panel.recipe_list.get_item_rect(0)

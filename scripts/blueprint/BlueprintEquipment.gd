@@ -4,6 +4,7 @@ const Data = preload("res://scripts/blueprint/BlueprintData.gd")
 const Blocks = preload("res://scripts/content/BlockCatalog.gd")
 const Geometry = preload("res://scripts/blueprint/BlueprintGeometry.gd")
 const Materials = preload("res://scripts/blueprint/BlueprintMaterials.gd")
+const VillageItems = preload("res://scripts/content/VillageItems.gd")
 const CATEGORIES: Array[String] = ["头部装备", "盔甲", "裤甲", "鞋子", "手套", "披风", "腰带"]
 const MATERIAL_NAMES: Array[String] = Materials.NAMES
 const MATERIAL_COLORS: Array[Color] = Materials.COLORS
@@ -15,7 +16,17 @@ const VOLUME_UNITS: Array[int] = [0, 64, 512, 8, 1]
 
 static func equipment_id(blueprint: Dictionary) -> int:
 	var slot := CATEGORIES.find(str(blueprint.get("category", "")))
-	return 101 + slot if slot >= 0 else 0
+	if slot >= 0:
+		return 101 + slot
+	var category := str(blueprint.get("category", ""))
+	var id := int(blueprint.get("target_item_id", 0))
+	if category == "工具":
+		return id if id in range(201, 210) else (201 if id == 0 else 0)
+	if category == "武器":
+		return id if id in range(301, 306) else (301 if id == 0 else 0)
+	if category == "道具摆件":
+		return id if id in VillageItems.FACILITIES else (504 if id == 0 else 0)
+	return 0
 
 static func is_custom_item(item: Dictionary) -> bool:
 	var blueprint: Variant = item.get("blueprint")
@@ -38,7 +49,7 @@ static func validation_error(blueprint: Dictionary) -> String:
 	if not data_error.is_empty():
 		return data_error
 	if equipment_id(blueprint) == 0:
-		return "请选择头部装备、盔甲、裤甲、鞋子、手套、披风或腰带进行制作"
+		return "请选择有效的装备、工具、武器或生活设施类别"
 	var voxels := active_voxels(blueprint)
 	if voxels.is_empty():
 		return "请先在当前部位放置至少一个方块"
@@ -48,7 +59,37 @@ static func validation_error(blueprint: Dictionary) -> String:
 		var pos: Variant = voxel.get("pos")
 		if not (pos is Vector3i or (pos is Array and pos.size() == 3)):
 			return "蓝图包含无效的方块坐标"
+	if str(blueprint.get("category", "")) not in CATEGORIES:
+		var bounds := item_bounds(blueprint)
+		var limit := 2.6 if str(blueprint.category) == "道具摆件" else 1.8
+		if maxf(bounds.size.x, maxf(bounds.size.y, bounds.size.z)) > limit:
+			return "该类别的成品整体尺寸过大"
+		if str(blueprint.category) in ["工具", "武器"] and bounds.get_center().length() > 1.5:
+			return "请围绕握柄基准搭建工具或武器"
 	return ""
+
+static func item_bounds(blueprint: Dictionary) -> AABB:
+	var bounds := AABB()
+	var first := true
+	var category := str(blueprint.get("category", ""))
+	for part in active_voxels(blueprint):
+		var pos := Geometry.preview_transform(part, category).origin
+		if category in ["工具", "武器"]: pos -= Vector3(-0.34, 0.78, 0.18)
+		var size := Geometry.dimensions(part)
+		var box := AABB(pos - size * 0.5, size)
+		bounds = box if first else bounds.merge(box)
+		first = false
+	return bounds
+
+static func product_ids(category: String) -> Array[int]:
+	var result: Array[int] = []
+	if category == "工具":
+		for id in range(201, 210): result.append(id)
+	elif category == "武器":
+		for id in range(301, 306): result.append(id)
+	elif category == "道具摆件":
+		result.assign(VillageItems.FACILITIES)
+	return result
 
 static func material_cost(blueprint: Dictionary) -> Dictionary:
 	var volumes := {}
@@ -62,6 +103,17 @@ static func material_cost(blueprint: Dictionary) -> Dictionary:
 	var result := {}
 	for resource in volumes:
 		result[resource] = maxi(1, ceili(float(volumes[resource]) / (pow(Geometry.UNIT, 3.0) * 512.0) - 0.000000001))
+	var id := equipment_id(blueprint)
+	var core := {}
+	if id in range(201, 210): core = {3: 1, (3 if id <= 203 else (5 if id <= 206 else 602)): 1}
+	elif id in range(301, 306): core = {3: 1, {301: 3, 302: 5, 303: 602, 304: 608, 305: 19}[id]: 1}
+	elif id in VillageItems.FACILITIES:
+		core = {3: 1}
+		if id in [502, 508]: core[5] = 1
+		if id == 505: core[16] = 1; core[10] = 1
+		if id == 503: core[4] = 1
+		if id == 507: core[2] = 1
+	for resource in core: result[resource] = maxi(int(result.get(resource, 0)), int(core[resource]))
 	return result
 
 static func make_item(blueprint: Dictionary) -> Dictionary:

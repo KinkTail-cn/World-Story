@@ -17,6 +17,7 @@ var game_settings: Control
 var autosave_time: float = 0.0
 var restart_confirmation: ConfirmationDialog
 var editing_document: Node3D
+var facility_panel: Control
 signal return_to_menu
 signal regenerate_requested
 
@@ -62,6 +63,7 @@ func _ready() -> void:
 	player.function_changed.connect(hud.update_function)
 	player.document_requested.connect(_open_document)
 	player.document_mined.connect(_on_document_mined)
+	player.facility_requested.connect(_open_facility)
 	player.vitals_changed.connect(hud.update_vitals)
 	player.rescued.connect(_on_rescued)
 	hud.function_selected.connect(_choose_function)
@@ -69,8 +71,7 @@ func _ready() -> void:
 	hud.inventory_panel.close_requested.connect(_close_inventory)
 	hud.design_closed.connect(_close_design)
 	hud.blueprint_workshop.blueprint_saved.connect(_on_blueprint_saved)
-	hud.blueprint_workshop.item_crafted.connect(func(item: Dictionary): hud.show_message("已制作：" + str(item.custom_name) + " · B 背包中右键穿戴，F5 保存进度"))
-	hud.blueprint_workshop.item_crafted.connect(func(_item: Dictionary): game_audio.play("craft"))
+	hud.blueprint_workshop.item_crafted.connect(func(item: Dictionary): hud.show_message("已制作：" + str(item.custom_name) + " · 放入快捷栏使用"))
 	inventory.changed.connect(_refresh_inventory)
 	inventory.crafted.connect(func(_id: int, _count: int): game_audio.play("craft"))
 	hud.bind_inventory(inventory)
@@ -103,6 +104,32 @@ func _ready() -> void:
 	game_settings = preload("res://scenes/SettingsPanel.tscn").instantiate()
 	hud.get_node("Root").add_child(game_settings)
 	game_settings.close_requested.connect(func(): game_settings.close(); hud.set_paused(true))
+	facility_panel = preload("res://scripts/ui/FacilityPanel.gd").new()
+	facility_panel.name = "FacilityPanel"
+	hud.get_node("Root").add_child(facility_panel)
+	hud.facility_panel = facility_panel
+	facility_panel.closed.connect(func():
+		get_tree().paused = false
+		player.controls_enabled = true
+		player.interaction_blocked = true
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	)
+	facility_panel.blueprint_requested.connect(func():
+		facility_panel.hide()
+		player.controls_enabled = true
+		get_tree().paused = true
+		hud.open_blueprint(player.visual)
+	)
+	facility_panel.crafting_requested.connect(func():
+		facility_panel.hide()
+		player.controls_enabled = true
+		get_tree().paused = true
+		hud.inventory_panel.open()
+		hud.inventory_panel._set_creative_view(false)
+	)
+	hud.inventory_panel.use_requested.connect(func(index: int):
+		hud.inventory_panel.show_feedback("已食用并恢复生命" if player.use_food_slot(index) else "生命已满或物品无法食用")
+	)
 	if not loaded_data.is_empty():
 		save_system.apply_player(player, loaded_data.get("player", {}))
 		world.load_data(loaded_data.get("world", {}), player.global_position)
@@ -254,6 +281,11 @@ func _input(event: InputEvent) -> void:
 		save_progress()
 		get_viewport().set_input_as_handled()
 		return
+	if facility_panel != null and facility_panel.visible:
+		if event.is_action_pressed("pause"):
+			facility_panel.close_panel()
+			get_viewport().set_input_as_handled()
+		return
 	if game_settings != null and game_settings.visible:
 		if event.is_action_pressed("pause"):
 			game_settings.close()
@@ -367,6 +399,13 @@ func _open_document(document: Node3D) -> void:
 		hud.blueprint_workshop.set_player_template(player.visual)
 		hud.blueprint_workshop.open(document.contents)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func _open_facility(key: String) -> void:
+	if is_loading or hud.any_modal_visible() or game_settings.visible: return
+	if key != "workbench" and (not world.life.records.has(key) or world.life.records[key].get("removed", false)): return
+	player.controls_enabled = false
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	facility_panel.open_for(key, world.life, inventory, player)
 
 func _on_document_mined(document: Node3D) -> void:
 	if document == null:

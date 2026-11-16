@@ -215,7 +215,11 @@ func _gui_input(event: InputEvent) -> void:
 			elif group == "bag" and index < 8 and not dragging and not get_viewport().gui_is_dragging():
 				slot_selected.emit(index)
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-			if group == "bag" and ItemCatalog.is_document(model.get_slot(group, index).id):
+			if group == "bag" and ItemCatalog.VillageItems.food_health(model.get_slot(group, index).id) > 0:
+				var panel := get_parent()
+				while panel != null and not panel.has_signal("use_requested"): panel = panel.get_parent()
+				if panel != null: panel.use_requested.emit(index)
+			elif group == "bag" and ItemCatalog.is_document(model.get_slot(group, index).id):
 				var panel := get_parent()
 				while panel != null and not panel.has_signal("item_used"):
 					panel = panel.get_parent()

@@ -16,6 +16,7 @@ const WATER_SHADER: Shader = preload("res://shaders/water.gdshader")
 const Document = preload("res://scripts/world/DocumentItem.gd")
 const GroundCover = preload("res://scripts/world/GroundCover.gd")
 const VillageGenerator = preload("res://scripts/world/VillageGenerator.gd")
+const Life = preload("res://scripts/world/VillageLife.gd")
 
 # 体素世界基础常量规范
 const CHUNK_SIZE: int = 16
@@ -58,6 +59,8 @@ const TRIANGLE_ORDER: Array[int] = [0, 2, 1, 0, 3, 2]
 var villages = VillageGenerator.new()
 var spawn_resolution_pending: bool = false
 var world_spawn: Vector3 = SPAWN
+var has_custom_spawn: bool = false
+var life: Node
 var village_spawn_pending: bool = false
 var starting_village: Dictionary = {}
 
@@ -114,6 +117,11 @@ func _ready() -> void:
 	_glass_material.set_shader_parameter("block_atlas", BlockTextures.get_atlas_texture())
 	_init_uv_cache()
 	_create_water()
+	life = Life.new()
+	life.name = "VillageLife"
+	life.world = self
+	add_child(life)
+	world_ready.connect(life.refresh)
 	
 	_generated = true
 	
@@ -432,6 +440,10 @@ func get_block(cell: Vector3i) -> int:
 
 ## 设置或修改指定世界坐标下的方块
 func set_block(cell: Vector3i, id: int) -> bool:
+	if life != null and id == 0 and not life.supporting(cell).is_empty():
+		return false
+	if life != null and id > 0 and not life.occupying(cell).is_empty():
+		return false
 	for document in documents:
 		if document.support_cell == cell or document.support_cell + Vector3i.UP == cell:
 			return false
@@ -480,7 +492,7 @@ func is_water_at(point: Vector3) -> bool:
 func get_spawn_position() -> Vector3:
 	if not _generated:
 		return to_global(SPAWN)
-	if terrain_generation_version > 0:
+	if terrain_generation_version > 0 or has_custom_spawn:
 		return to_global(world_spawn)
 	if world_type == "village" and not starting_village.is_empty():
 		var centre: Vector2i = starting_village.centre
@@ -569,6 +581,8 @@ func save_data() -> Dictionary:
 		"world_seed": world_seed,
 		"terrain_generation_version": terrain_generation_version,
 		"spawn_position": world_spawn,
+		"custom_spawn": has_custom_spawn,
+		"village_life": life.save_data() if life != null else {},
 		"village_generation_version": village_generation_version,
 		"village_home": [starting_village.centre.x, starting_village.centre.y] if not starting_village.is_empty() else [],
 		"modified_blocks": mods,
@@ -582,6 +596,9 @@ func save_data() -> Dictionary:
 ## 加载并恢复世界数据
 func load_data(data: Dictionary, focus_position: Vector3 = SPAWN) -> void:
 	initial_load_position = focus_position
+	has_custom_spawn = bool(data.get("custom_spawn", false))
+	if data.get("spawn_position") is Vector3: world_spawn = data.spawn_position
+	if life != null: life.load_data(data.get("village_life", {}))
 	spawn_resolution_pending = false
 	village_spawn_pending = false
 	starting_village = {}
