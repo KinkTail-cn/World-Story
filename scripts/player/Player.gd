@@ -28,6 +28,7 @@ var target_document: Node3D
 var target_facility: String = ""
 var selected_slot: int = 0
 var first_person: bool = false
+var food_display_active: bool = false
 var mouse_sensitivity: float = 0.0025
 var target_cell := Vector3i(-1, -1, -1)
 var target_normal := Vector3i.ZERO
@@ -197,13 +198,14 @@ func set_flying(enabled: bool) -> void:
 func set_first_person(enabled: bool) -> void:
 	first_person = enabled
 	visual.visible = not first_person
-	first_person_item.visible = first_person and (ItemCatalog.is_block(selected_item_id()) or ItemCatalog.is_document(selected_item_id()) or ItemCatalog.is_tool_item(selected_item_id()) or ItemCatalog.is_weapon(selected_item_id()) or ItemCatalog.is_facility(selected_item_id()) or ItemCatalog.is_supply(selected_item_id()))
+	first_person_item.visible = first_person and (food_display_active or ItemCatalog.is_block(selected_item_id()) or ItemCatalog.is_document(selected_item_id()) or ItemCatalog.is_tool_item(selected_item_id()) or ItemCatalog.is_weapon(selected_item_id()) or ItemCatalog.is_facility(selected_item_id()) or ItemCatalog.is_supply(selected_item_id()))
 	_update_camera_height()
 	camera.fov = 80.0 if first_person else 70.0
 	_emit_status()
 
 
 func select_slot(slot: int) -> void:
+	food_display_active = false
 	selected_slot = clampi(slot, 0, 7)
 	var id: int = selected_item_id()
 	var item: Dictionary = inventory.get_slot("bag", selected_slot) if inventory != null else {}
@@ -217,13 +219,23 @@ func selected_item_id() -> int:
 
 func use_food_slot(index: int) -> bool:
 	if inventory == null or health >= 100: return false
-	var id: int = inventory.get_slot("bag", index).id
+	var food: Dictionary = inventory.get_slot("bag", index)
+	var id: int = food.id
 	var healing: float = ItemCatalog.VillageItems.food_health(id)
 	if healing <= 0: return false
 	health = minf(100, health + healing)
 	inventory.consume_slot(index)
+	if index == selected_slot:
+		# Finish showing the last bite even after the inventory slot becomes empty.
+		if selected_item_id() != id:
+			visual.set_held_block(id, food)
+			first_person_item.set_block(id, food)
+			first_person_item.visible = first_person
+			food_display_active = true
+		visual.play_consume()
+	_spawn_food_crumbs(id)
 	vitals_changed.emit(health, air, false)
-	sound_requested.emit("craft")
+	sound_requested.emit("eat")
 	return true
 
 func select_function(function: int) -> void:
@@ -346,6 +358,7 @@ func _update_camera_height() -> void:
 func _physics_process(delta: float) -> void:
 	if world == null or not controls_enabled:
 		return
+	if food_display_active and visual.consume_time <= 0.0: select_slot(selected_slot)
 	if flying and (inventory == null or not inventory.is_creative()):
 		set_flying(false)
 	_flight_takeoff = maxf(0.0, _flight_takeoff - delta)
@@ -833,6 +846,24 @@ func _spawn_debris(pos: Vector3, color: Color) -> void:
 		fragment.global_position = pos + Vector3(randf_range(-0.3, 0.3), randf_range(-0.2, 0.3), randf_range(-0.3, 0.3))
 		debris.append({"node": fragment, "velocity": Vector3(randf_range(-2.5, 2.5), randf_range(1.0, 3.0), randf_range(-2.5, 2.5)), "age": 0.0})
 
+func _spawn_food_crumbs(id: int) -> void:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color("dfbc7f") if id == 605 else Color("e6c493")
+	var forward: Vector3 = -visual.global_basis.z
+	var mouth: Vector3 = visual.to_global(Vector3(0, 1.44, -0.3))
+	for index in range(8):
+		if debris.size() >= 135:
+			debris[0].node.queue_free()
+			debris.remove_at(0)
+		var crumb := MeshInstance3D.new()
+		var mesh := BoxMesh.new()
+		mesh.size = Vector3.ONE * (0.012 + float(index % 3) * 0.003)
+		crumb.mesh = mesh
+		crumb.material_override = material
+		effects_root.add_child(crumb)
+		crumb.global_position = mouth + Vector3(randf_range(-0.06, 0.06), randf_range(-0.025, 0.025), 0)
+		debris.append({"node": crumb, "velocity": forward * randf_range(0.15, 0.45) + Vector3(randf_range(-0.2, 0.2), randf_range(0.0, 0.3), 0), "age": 0.0, "rigid_cube": true})
+
 func _update_debris(delta: float) -> void:
 	for i in range(debris.size() - 1, -1, -1):
 		var item: Dictionary = debris[i]
@@ -843,8 +874,9 @@ func _update_debris(delta: float) -> void:
 			continue
 		item.velocity.y -= 9.0 * delta
 		item.node.position += item.velocity * delta
-		item.node.rotate_x(delta * 5.0)
-		item.node.rotate_z(delta * 3.0)
+		if not item.get("rigid_cube", false):
+			item.node.rotate_x(delta * 5.0)
+			item.node.rotate_z(delta * 3.0)
 		item.node.scale = Vector3.ONE * (1.0 - item.age / 0.7)
 
 ## 在挖掘敲击瞬间产生真实的石屑/木屑打击飞溅微粒
@@ -914,6 +946,9 @@ func _update_first_person_motion(delta: float, horizontal_speed: float, is_swing
 	
 	var motion_offset := Vector3.ZERO
 	var rot_offset := Vector3.ZERO
+	var eating: float = visual.consume_weight()
+	motion_offset += Vector3(-0.2, 0.18, 0.1) * eating
+	rot_offset += Vector3(0.15, 0, -0.06) * eating
 	
 	# 1. 视角转动惯性漂移（Mouse Look Sway & Tilt）
 	fp_look_sway = fp_look_sway.lerp(Vector2.ZERO, minf(delta * 9.0, 1.0))

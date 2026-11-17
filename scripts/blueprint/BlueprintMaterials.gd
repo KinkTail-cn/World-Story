@@ -10,9 +10,16 @@ const CAPE_SHADER = preload("res://shaders/cube_cape.gdshader")
 const SOFT_SHADER = preload("res://shaders/soft_motion.gdshader")
 const MOTIONS: Array[String] = ["fixed", "cloth", "leather", "feather", "paper"]
 const MOTION_NAMES: Array[String] = ["固定", "布料轻摆", "皮革轻摆", "羽饰轻摆", "纸张微动"]
+const ANIMATION_GROUPS: Array[String] = ["body", "lid", "crank", "rope", "bucket", "water", "glow", "glass", "soil", "quilt", "seat", "drawer", "paper", "tool", "crop"]
+const ANIMATION_NAMES: Array[String] = ["固定主体", "容器盖子", "井台摇柄", "吊绳", "井桶", "水面", "灯芯", "玻璃", "土壤", "床被与枕头", "椅垫", "工作台抽屉", "桌面图纸", "桌面工具", "作物"]
+const VISUAL_SURFACES: Array[String] = ["wood", "metal", "stone", "glass", "water", "fabric", "soil", "plant", "grain", "food", "paper", "glow"]
+const VISUAL_SURFACE_NAMES: Array[String] = ["木质", "金属", "石材", "玻璃", "水面", "织物", "土壤", "植物", "谷粒", "食物", "纸张", "灯芯"]
 
 static func tint(part: Dictionary) -> Color:
 	return Color(str(part.tint)) if part.has("tint") else COLORS[clampi(int(part.get("mat", 1)) - 1, 0, 7)]
+
+static func utility_surface(part: Dictionary) -> String:
+	return str(part.get("visual_surface", {"metal": "metal", "cloth": "fabric", "leather": "fabric"}.get(str(part.get("surface", "solid")), "wood")))
 
 static func create_cape(part: Dictionary) -> ShaderMaterial:
 	var material := ShaderMaterial.new()
@@ -39,6 +46,8 @@ static func create(part: Dictionary, ghost: bool = false) -> Material:
 		preview.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		preview.cull_mode = BaseMaterial3D.CULL_DISABLED
 		return preview
+	if VISUAL_SURFACES.has(str(part.get("visual_surface", ""))):
+		return create_utility(tint(part), str(part.visual_surface))
 	var surface := str(part.get("surface", "solid"))
 	if surface != "solid":
 		var material := StandardMaterial3D.new()
@@ -51,4 +60,20 @@ static func create(part: Dictionary, ghost: bool = false) -> Material:
 	material.shader = SHADER
 	material.set_shader_parameter("base_color", tint(part))
 	material.set_shader_parameter("surface_roughness", 0.8)
+	return material
+
+static func create_utility(color: Color, profile: String) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = {"metal": 0.3, "glass": 0.16, "water": 0.18, "fabric": 0.98, "soil": 1.0, "plant": 0.9, "food": 0.85}.get(profile, 0.8)
+	material.metallic = 0.45 if profile == "metal" else 0.0
+	material.metallic_specular = 0.4 if profile in ["metal", "glass", "water"] else 0.18
+	if profile in ["glass", "water"]:
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.albedo_color.a = 0.28 if profile == "glass" else 0.78
+		material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	if profile == "glow":
+		material.emission_enabled = true
+		material.emission = color
+		material.emission_energy_multiplier = 1.5
 	return material

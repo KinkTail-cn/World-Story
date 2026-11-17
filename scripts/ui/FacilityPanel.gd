@@ -21,6 +21,8 @@ var contents: ItemList
 var input_choice: OptionButton
 var fuel_choice: OptionButton
 var refresh_time: float = 0.0
+var preview_root: Node3D
+var preview_viewport: SubViewport
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -61,12 +63,14 @@ func _layout() -> void:
 	if card != null: Layout.fit_centered(card, size, Vector2(820, 0), 22)
 
 func open_for(value: String, service: Node, model: RefCounted, actor: Node3D) -> void:
+	release_interaction()
 	life = service
 	inventory = model
 	player = actor
 	key = value
 	life.active_interaction = key
 	life.interacting_actor = actor
+	if life.nodes.has(key) and life.nodes[key].has_method("update_state"): life.nodes[key].update_state()
 	for child in body.get_children().slice(1):
 		body.remove_child(child)
 		if child != status: child.queue_free()
@@ -74,7 +78,7 @@ func open_for(value: String, service: Node, model: RefCounted, actor: Node3D) ->
 	contents = null
 	input_choice = null
 	fuel_choice = null
-	var record: Dictionary = life.records.get(key, {"kind": "workbench", "item": {"id": 509}})
+	var record: Dictionary = life.records.get(key, life._record(key, 509, Vector3i.ZERO))
 	var kind := str(record.kind)
 	title.text = {"farmer": "农夫", "smith": "铁匠", "trader": "行商", "keeper": "仓房管理员"}.get(str(record.get("role", "")), Catalog.title(int(record.get("item", {}).get("id", 509))))
 	detail = Label.new()
@@ -129,12 +133,77 @@ func open_for(value: String, service: Node, model: RefCounted, actor: Node3D) ->
 			if not selected.is_empty(): _act("trade", selected[0])
 		, true)
 	body.add_child(status)
+	_add_preview(record)
 	status.text = life.last_message
 	life.last_message = ""
 	visible = true
 	_refresh()
 	_layout.call_deferred()
 	UI.reveal(card)
+
+func _add_preview(record: Dictionary) -> void:
+	preview_root = null
+	preview_viewport = null
+	if record.kind == "resident": return
+	var row := HBoxContainer.new()
+	row.name = "FacilityContents"
+	row.add_theme_constant_override("separation", 18)
+	var controls := VBoxContainer.new()
+	controls.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	controls.add_theme_constant_override("separation", 12)
+	var actions: Array[Node] = []
+	for child in body.get_children().slice(2):
+		if child != status: actions.append(child)
+	body.add_child(row)
+	body.move_child(row, 2)
+	row.add_child(controls)
+	for child in actions: child.reparent(controls)
+	var preview_card := PanelContainer.new()
+	preview_card.custom_minimum_size = Vector2(210, 240)
+	preview_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	preview_card.add_theme_stylebox_override("panel", UI.box(Color("e3e9e0"), Color("ccd8cc"), 12, Vector2(8, 8)))
+	row.add_child(preview_card)
+	var container := SubViewportContainer.new()
+	container.stretch = true
+	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	preview_card.add_child(container)
+	preview_viewport = SubViewport.new()
+	preview_viewport.own_world_3d = true
+	preview_viewport.transparent_bg = true
+	preview_viewport.msaa_3d = Viewport.MSAA_2X
+	container.add_child(preview_viewport)
+	var environment := WorldEnvironment.new()
+	environment.environment = Environment.new()
+	environment.environment.background_mode = Environment.BG_COLOR
+	environment.environment.background_color = Color.TRANSPARENT
+	environment.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	environment.environment.ambient_light_color = Color("d8e6df")
+	environment.environment.ambient_light_energy = 0.72
+	preview_viewport.add_child(environment)
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-35, -25, 0)
+	sun.light_energy = 1.0
+	preview_viewport.add_child(sun)
+	var object = preload("res://scripts/world/FacilityObject.gd").new()
+	object.record = record
+	object.service = life
+	object.preview = true
+	preview_viewport.add_child(object)
+	preview_root = object
+	var camera := Camera3D.new()
+	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+	camera.keep_aspect = Camera3D.KEEP_WIDTH
+	var bounds: AABB = object.model.bounds
+	var span := maxf(bounds.size.x, maxf(bounds.size.y, bounds.size.z))
+	camera.size = maxf(1.4, span * 1.7)
+	var centre := bounds.get_center() + Vector3(0, 0.2 if record.kind in ["chest", "barrel"] else 0.0, 0)
+	camera.position = centre + Vector3(1.7, 1.1, -2.3) * maxf(1, span)
+	preview_viewport.add_child(camera)
+	camera.look_at(centre)
+	# Storage pages have two columns; narrower lists make room for the live
+	# object view without reducing the minimum window's pointer targets.
+	if bag_list != null: bag_list.custom_minimum_size.x = 205
+	if contents != null: contents.custom_minimum_size.x = 205
 
 func _storage_layout(furnace: bool) -> void:
 	var columns := HBoxContainer.new()
@@ -241,9 +310,16 @@ func _process(delta: float) -> void:
 		refresh_time = 0.3
 		_refresh()
 
-func close_panel() -> void:
+func release_interaction() -> void:
 	if life != null:
 		life.active_interaction = ""
 		life.interacting_actor = null
+		if life.nodes.has(key) and life.nodes[key].has_method("update_state"): life.nodes[key].update_state()
+	if preview_viewport != null:
+		preview_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		preview_viewport.process_mode = Node.PROCESS_MODE_DISABLED
+
+func close_panel() -> void:
+	release_interaction()
 	hide()
 	closed.emit()

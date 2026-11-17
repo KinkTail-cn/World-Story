@@ -18,6 +18,7 @@ var autosave_time: float = 0.0
 var restart_confirmation: ConfirmationDialog
 var editing_document: Node3D
 var facility_panel: Control
+var crafting_station: String = ""
 signal return_to_menu
 signal regenerate_requested
 
@@ -73,7 +74,10 @@ func _ready() -> void:
 	hud.blueprint_workshop.blueprint_saved.connect(_on_blueprint_saved)
 	hud.blueprint_workshop.item_crafted.connect(func(item: Dictionary): hud.show_message("已制作：" + str(item.custom_name) + " · 放入快捷栏使用"))
 	inventory.changed.connect(_refresh_inventory)
-	inventory.crafted.connect(func(_id: int, _count: int): game_audio.play("craft"))
+	inventory.crafted.connect(func(_id: int, _count: int):
+		game_audio.play("craft")
+		if not crafting_station.is_empty(): world.life.feedback(crafting_station, "craft", player)
+	)
 	hud.bind_inventory(inventory)
 	blueprint_manager.load_json()
 	hud.bind_blueprints(blueprint_manager)
@@ -115,12 +119,17 @@ func _ready() -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	)
 	facility_panel.blueprint_requested.connect(func():
+		crafting_station = facility_panel.key
+		world.life.feedback(crafting_station, "design", player)
+		facility_panel.release_interaction()
 		facility_panel.hide()
 		player.controls_enabled = true
 		get_tree().paused = true
 		hud.open_blueprint(player.visual)
 	)
 	facility_panel.crafting_requested.connect(func():
+		crafting_station = facility_panel.key
+		facility_panel.release_interaction()
 		facility_panel.hide()
 		player.controls_enabled = true
 		get_tree().paused = true
@@ -375,12 +384,14 @@ func _choose_function(index: int) -> void:
 	player.select_function(index)
 
 func _close_inventory() -> void:
+	crafting_station = ""
 	hud.inventory_panel.close()
 	get_tree().paused = false
 	player.interaction_blocked = true
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _close_design() -> void:
+	crafting_station = ""
 	hud.blueprint_workshop.visible = false
 	hud.notebook_panel.visible = false
 	editing_document = null

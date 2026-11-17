@@ -2,6 +2,7 @@ extends RefCounted
 
 const FACILITIES: Array[int] = [501, 502, 503, 504, 505, 506, 507, 508, 509, 510]
 const SUPPLIES: Array[int] = [601, 602, 603, 604, 605, 606, 607, 608, 609, 610]
+const CROP_HEADROOM: float = 0.57
 const NAMES := {501: "储物箱", 502: "熔炉", 503: "木床", 504: "木椅", 505: "提灯", 506: "木桶", 507: "种植箱", 508: "井台", 509: "蓝图工作台", 510: "双扇木门", 601: "木棍", 602: "铁锭", 603: "小麦种子", 604: "小麦", 605: "面包", 606: "苹果", 607: "木炭", 608: "金锭", 609: "空木桶", 610: "水桶"}
 const KINDS := {501: "chest", 502: "furnace", 503: "bed", 504: "chair", 505: "lamp", 506: "barrel", 507: "crop", 508: "well", 509: "workbench", 510: "door"}
 const RECIPES := {
@@ -24,12 +25,15 @@ static func food_health(id: int) -> float:
 
 static func size(id: int) -> Vector3:
 	match id:
+		501: return Vector3(0.9, 0.85, 1.0)
+		502: return Vector3(0.95, 1.1, 0.95)
 		503: return Vector3(0.95, 0.65, 1.85)
-		504: return Vector3(0.65, 0.95, 0.65)
-		505: return Vector3(0.35, 0.65, 0.35)
+		504: return Vector3(0.65, 0.97, 0.65)
+		505: return Vector3(0.35, 0.7, 0.35)
+		506: return Vector3(0.9, 0.95, 0.9)
 		507: return Vector3(0.95, 0.85, 0.95)
-		508: return Vector3(1.5, 1.7, 1.5)
-		509: return Vector3(0.95, 0.9, 0.95)
+		508: return Vector3(1.7, 1.7, 1.5)
+		509: return Vector3(0.95, 1.0, 0.95)
 		510: return Vector3(2.0, 3.0, 0.16)
 	return Vector3(0.9, 0.85, 0.9)
 

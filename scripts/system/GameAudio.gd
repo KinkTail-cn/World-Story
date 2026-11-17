@@ -17,6 +17,7 @@ func _ready() -> void:
 		voices.append(voice)
 	for kind in ["mine", "place", "hurt", "craft", "step", "water"]:
 		sounds[kind] = _make_sound(kind)
+	sounds["eat"] = preload("res://scripts/system/FacilitySounds.gd").clip("eat")
 	ambience = AudioStreamPlayer.new()
 	ambience.stream = _make_ambience()
 	ambience.volume_db = -33.0
@@ -24,7 +25,7 @@ func _ready() -> void:
 	ambience.play()
 
 func play(kind: String) -> void:
-	if not sounds.has(kind) or voices.is_empty() or (get_tree().paused and kind != "craft"):
+	if not sounds.has(kind) or voices.is_empty() or (get_tree().paused and kind not in ["craft", "eat"]):
 		return
 	var now := Time.get_ticks_msec()
 	if now - int(_last.get(kind, -10000)) < (220 if kind == "step" else 90):

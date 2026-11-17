@@ -86,7 +86,7 @@ func _run() -> void:
 	game.inventory.add_item(3, 3)
 	check(game.inventory.prepare_recipe("3") and game.inventory.take_result(), "Actual crafting still works without any goal or unlock")
 	check(game.inventory.count_item(7) == 4, "Crafting grants only the normal recipe output")
-	check(game.game_audio.sounds.size() == 6 and game.game_audio.voices.size() == 6, "Audio uses a bounded effect and voice pool")
+	check(game.game_audio.sounds.size() == 7 and game.game_audio.sounds.has("eat") and game.game_audio.voices.size() == 6, "Seven cached effects, including food, reuse the bounded six-voice pool")
 	check(game.game_audio._last.has("craft"), "The successful craft transaction triggers sound")
 	for kind in game.game_audio.sounds:
 		var sound: AudioStreamWAV = game.game_audio.sounds[kind]

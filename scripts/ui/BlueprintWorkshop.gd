@@ -948,6 +948,7 @@ func _select_category(cat: String, immediate: bool = false) -> void:
 	_refresh_products()
 	%PreviewPose.disabled = cat not in EquipmentDesign.CATEGORIES
 	if inspector != null:
+		inspector.set_product_mode(cat in ["道具摆件", "工具", "武器"])
 		inspector.anchor_box.visible = cat in EquipmentDesign.CATEGORIES
 		inspector.get_node("%Motion").disabled = cat not in EquipmentDesign.CATEGORIES
 		inspector.get_node("%Motion").tooltip_text = "穿戴和动作预览时查看飘动" if cat in EquipmentDesign.CATEGORIES else "工具与生活设施保持固定形状"
@@ -1557,7 +1558,7 @@ func _placement_from_hit(hit: Dictionary) -> Dictionary:
 	var part := Geometry.primitive(current_category, Vector3.ZERO, extent, bone)
 	part["mat"] = selected_material
 	part["size"] = current_voxel_size
-	for key in ["tint", "surface", "motion"]:
+	for key in ["tint", "surface", "motion", "animation_group", "visual_surface"]:
 		if brush.has(key):
 			part[key] = brush[key].duplicate(true) if brush[key] is Dictionary else brush[key]
 	var basis := Geometry.preview_transform(part, current_category).basis
@@ -2153,7 +2154,10 @@ func _editor_action(action: String) -> void:
 			var values: Dictionary = inspector.properties()
 			values["mat"] = selected_material
 			edit_session.set_properties(values)
-		"paint": edit_session.set_properties({"mat": selected_material, "tint": inspector.tint_picker.color.to_html(false), "surface": Materials.SURFACES[maxi(0, inspector.surface_box.selected)]})
+		"paint":
+			var values := {"mat": selected_material, "tint": inspector.tint_picker.color.to_html(false), "surface": Materials.SURFACES[maxi(0, inspector.surface_box.selected)]}
+			if inspector.product_mode: values["visual_surface"] = Materials.VISUAL_SURFACES[maxi(0, inspector.visual_surface_box.selected)]
+			edit_session.set_properties(values)
 		"duplicate": edit_session.duplicate_selected()
 		"delete": edit_session.erase_selected()
 		"undo": edit_session.undo()

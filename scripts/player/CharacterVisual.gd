@@ -23,6 +23,7 @@ var swing: float = 0.0
 var held_item: Node3D
 var swing_phase: float = 0.0
 var place_time: float = 0.0
+var consume_time: float = 0.0
 var equipment_visuals: Node3D
 var swim_phase: float = 0.0
 var idle_phase: float = 0.0
@@ -117,6 +118,7 @@ func _ready() -> void:
 
 func set_held_block(id: int, data: Dictionary = {}) -> void:
 	if held_item.block_id != id:
+		consume_time = 0.0
 		swing_cycle_running = false
 		swing_cycle_time = 0.0
 		swing_phase = 0.0
@@ -129,7 +131,14 @@ func set_held_block(id: int, data: Dictionary = {}) -> void:
 func play_place() -> void:
 	place_time = 0.25
 
+func play_consume() -> void:
+	consume_time = 0.6
+
+func consume_weight() -> float:
+	return sin(clampf(consume_time / 0.6, 0.0, 1.0) * PI)
+
 func animate(delta: float, speed: float, airborne: bool, mining: bool, swimming: bool = false, submerged: bool = false, sitting: bool = false, sprinting: bool = false, flying: bool = false) -> void:
+	consume_time = maxf(0.0, consume_time - delta)
 	equipment_visuals.update_motion(delta, speed, airborne, swimming, sitting)
 	if flying:
 		speed = 0.0
@@ -391,6 +400,10 @@ func animate(delta: float, speed: float, airborne: bool, mining: bool, swimming:
 	_update_held_item(delta, swing, s_motion.wrist_pitch * swing - 0.38 * place_blend, s_motion.get("grip_rotation"))
 
 func _update_held_item(delta: float, action_weight: float = 0.0, wrist_pitch: float = 0.0, grip_rotation: Variant = null) -> void:
+	var eating := consume_weight()
+	if eating > 0.0:
+		right_arm.rotation = right_arm.rotation.lerp(Vector3(1.8, -0.15, -0.5), eating)
+		right_forearm.rotation = right_forearm.rotation.lerp(Vector3(1.45, 0, 0), eating)
 	if is_instance_valid(held_item):
 		held_item.rotation.x = lerpf(held_item.rotation.x, wrist_pitch, minf(delta * 26.0, 1.0))
 		held_item.update_third_person_grip(body.global_basis, action_weight, grip_rotation)

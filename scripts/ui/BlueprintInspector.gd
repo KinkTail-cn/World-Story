@@ -15,11 +15,30 @@ var _dirty_axes: Array[int] = []
 var _base_offset := Vector3.ZERO
 var _source_offset: Array = [0.0, 0.0, 0.0]
 var _base_edge: float = 0.13
+var product_mode: bool = false
+var animation_box: OptionButton
+var visual_surface_box: OptionButton
 @onready var anchor_box: OptionButton = %Anchor
 @onready var surface_box: OptionButton = %Surface
 @onready var tint_picker: ColorPickerButton = %Tint
 
 func _ready() -> void:
+	animation_box = OptionButton.new()
+	animation_box.name = "AnimationGroup"
+	animation_box.clip_text = true
+	for title in Materials.ANIMATION_NAMES: animation_box.add_item("部件：" + title)
+	add_child(animation_box)
+	move_child(animation_box, 2)
+	animation_box.visible = false
+	animation_box.item_selected.connect(func(_index: int): _notify("animation_group"))
+	visual_surface_box = OptionButton.new()
+	visual_surface_box.name = "VisualSurface"
+	visual_surface_box.clip_text = true
+	for title in Materials.VISUAL_SURFACE_NAMES: visual_surface_box.add_item("材质：" + title)
+	add_child(visual_surface_box)
+	move_child(visual_surface_box, 3)
+	visual_surface_box.visible = false
+	visual_surface_box.item_selected.connect(func(_index: int): _notify("visual_surface"))
 	anchor_box.add_item("挂点：自动判断")
 	for title in Geometry.ANCHOR_NAMES:
 		anchor_box.add_item("挂点：" + title)
@@ -73,6 +92,9 @@ func _notify(key: String) -> void:
 func properties() -> Dictionary:
 	var edge := float(%Edge.value) if not has_selection or _dirty.has("dimensions") else _base_edge
 	var result := {"shape": "box", "dimensions": Geometry.array(Vector3.ONE * edge), "tint": tint_picker.color.to_html(false), "surface": Materials.SURFACES[maxi(0, surface_box.selected)], "motion": Materials.MOTIONS[maxi(0, %Motion.selected)]}
+	if product_mode:
+		result["animation_group"] = Materials.ANIMATION_GROUPS[maxi(0, animation_box.selected)]
+		result["visual_surface"] = Materials.VISUAL_SURFACES[maxi(0, visual_surface_box.selected)]
 	if anchor_box.selected > 0:
 		result["anchor"] = Geometry.ANCHORS[anchor_box.selected - 1]
 	if selection_count == 1:
@@ -102,6 +124,8 @@ func set_values(part: Dictionary, selected_count: int = 0, category: String = "�
 	anchor_box.select(Geometry.ANCHORS.find(bone) + 1)
 	surface_box.select(maxi(0, Materials.SURFACES.find(str(part.get("surface", "solid")))))
 	%Motion.select(maxi(0, Materials.MOTIONS.find(str(part.get("motion", "fixed")))))
+	animation_box.select(maxi(0, Materials.ANIMATION_GROUPS.find(str(part.get("animation_group", "body")))))
+	visual_surface_box.select(maxi(0, Materials.VISUAL_SURFACES.find(Materials.utility_surface(part))))
 	tint_picker.color = Materials.tint(part)
 	_base_edge = Geometry.dimensions(part).x
 	%Edge.value = _base_edge
@@ -117,6 +141,13 @@ func set_values(part: Dictionary, selected_count: int = 0, category: String = "�
 	%Hidden.disabled = not has_selection
 	%Locked.disabled = not has_selection
 	refreshing = false
+
+func set_product_mode(enabled: bool) -> void:
+	product_mode = enabled
+	animation_box.visible = enabled
+	visual_surface_box.visible = enabled
+	surface_box.visible = not enabled
+	animation_box.tooltip_text = "指定固定主体、盖子、摇柄或灯芯等部件；制作后的设施按实际功能驱动这些部件。"
 
 func set_dimensions(extent: Vector3) -> void:
 	refreshing = true

@@ -59,6 +59,7 @@ func set_block(id: int, data: Dictionary = {}) -> void:
 		var visual = preload("res://scripts/player/UtilityVisual.gd").new()
 		add_child(visual)
 		visual.build(id, data, ItemCatalog.is_facility(id) or ItemCatalog.is_supply(id))
+		visual.enable_held_effects(id)
 		if ItemCatalog.is_tool_item(id): tool_visual = visual
 		elif ItemCatalog.is_weapon(id): weapon_visual = visual
 		else: utility_visual = visual

@@ -1,6 +1,7 @@
 extends Node
 
 signal changed
+signal feedback_requested(key: String, action: String, actor: Node3D)
 const Items = preload("res://scripts/content/VillageItems.gd")
 const Catalog = preload("res://scripts/inventory/ItemCatalog.gd")
 const Inventory = preload("res://scripts/inventory/Inventory.gd")
@@ -216,7 +217,9 @@ func bounds_for(record: Dictionary) -> AABB:
 	if record.kind == "door": return DoorGeometry.reserved_bounds(record)
 	var pos := Vector3(record.position[0], record.position[1], record.position[2])
 	var size: Vector3 = Items.size(int(record.item.id))
-	if record.get("size") is Array: size = Vector3(record.size[0], record.size[1], record.size[2])
+	if record.get("size") is Array:
+		size = Vector3(record.size[0], record.size[1], record.size[2])
+		if record.kind == "crop": size.y += Items.CROP_HEADROOM
 	if int(record.get("turns", 0)) % 2: size = Vector3(size.z, size.y, size.x)
 	return AABB(pos + Vector3(-size.x * 0.5, 0, -size.z * 0.5), size)
 
@@ -303,6 +306,9 @@ func mark(record: Dictionary) -> void:
 	edits[record.key] = record
 	changed.emit()
 
+func feedback(key: String, action: String, actor: Node3D = null) -> void:
+	feedback_requested.emit(key, action, actor)
+
 func fail(text: String) -> Dictionary:
 	last_message = text
 	return {"ok": false, "message": text}
@@ -334,6 +340,7 @@ func deposit(key: String, inventory: RefCounted, index: int) -> Dictionary:
 	record.storage = staged
 	inventory.changed.emit()
 	mark(record)
+	feedback(key, "deposit")
 	return {"ok": true, "message": "已存入容器"}
 
 func withdraw(key: String, inventory: RefCounted, index: int, output: bool = false) -> Dictionary:
@@ -344,6 +351,7 @@ func withdraw(key: String, inventory: RefCounted, index: int, output: bool = fal
 	if not inventory.add_snapshot(slots[index]): return fail("背包空间不足")
 	slots.remove_at(index)
 	mark(record)
+	feedback(key, "collect" if output else "withdraw")
 	return {"ok": true, "message": "已放入背包"}
 
 func act(key: String, action: String, inventory: RefCounted, player: Node3D, value: int = 0) -> Dictionary:
@@ -432,6 +440,7 @@ func act(key: String, action: String, inventory: RefCounted, player: Node3D, val
 	mark(record)
 	_simulate(record)
 	if nodes.has(key) and record.kind != "resident": nodes[key].update_state()
+	feedback(key, action, player)
 	return {"ok": true, "message": {"plant": "已播种", "water": "已浇水，生长速度提升", "harvest": "小麦与种子已收进背包", "rest": "已休息恢复，并设置返回位置", "trade": "交易完成"}.get(action, "操作完成")}
 
 static func trades(role: String) -> Array[Dictionary]:

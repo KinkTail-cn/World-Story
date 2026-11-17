@@ -11,5 +11,8 @@ static func design(id: int) -> Dictionary:
 		var part := Geometry.primitive(category, pos, Vector3.ONE * float(cube.edge))
 		part["tint"] = Color(cube.tint).to_html(false)
 		part["mat"] = 4
+		part["animation_group"] = str(cube.get("group", "body"))
+		part["visual_surface"] = str(cube.get("surface", "wood"))
+		part["label"] = preload("res://scripts/blueprint/BlueprintMaterials.gd").ANIMATION_NAMES[maxi(0, preload("res://scripts/blueprint/BlueprintMaterials.gd").ANIMATION_GROUPS.find(part.animation_group))] + " " + str(data.voxels.size() + 1)
 		data.add_part(part)
 	return data.to_dictionary()
