@@ -465,7 +465,10 @@ func _physics_process(delta: float) -> void:
 			_place()
 			place_delay = 0.25
 		elif Input.is_action_pressed("place") and place_delay <= 0.0:
-			_place()
+			# Holding placement may build repeatedly, but a door switches only
+			# once per press rather than oscillating open/closed under the cursor.
+			var is_door: bool = world.get("life") != null and world.life.records.get(target_facility, {}).get("kind", "") == "door"
+			if not is_door: _place()
 			place_delay = 0.20
 	var horizontal_speed: float = Vector2(velocity.x, velocity.z).length()
 	var is_sprinting: bool = Input.is_action_pressed("sprint") and horizontal_speed > 5.0 and not swimming and not sitting
@@ -724,7 +727,7 @@ func _place() -> void:
 	if ItemCatalog.is_facility(id):
 		if target_id <= 0 or target_normal != Vector3i.UP: return
 		var player_box := AABB(global_position + Vector3(-0.36, 0, -0.36), Vector3(0.72, 1.8, 0.72))
-		var result: Dictionary = world.life.place(inventory.get_slot("bag", selected_slot), target_cell, player_box, roundi(rig.rotation.y / (PI * 0.5)) + 2)
+		var result: Dictionary = world.life.place(inventory.get_slot("bag", selected_slot), target_cell, player_box, roundi(rig.rotation.y / (PI * 0.5)) + (0 if id == 510 else 2))
 		if result.ok:
 			inventory.consume_slot(selected_slot)
 			placed += 1

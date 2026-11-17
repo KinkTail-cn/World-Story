@@ -7,18 +7,23 @@ var bounds := AABB()
 var cache_identity: String = ""
 static var _cache: Dictionary = {}
 
-func build(id: int, item: Dictionary = {}, display: bool = false) -> void:
+func build(id: int, item: Dictionary = {}, display: bool = false, door_section: int = 0) -> void:
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
 	var blueprint: Variant = item.get("blueprint", {})
-	var cache_key := str(id) + ":" + str(blueprint.hash() if blueprint is Dictionary else 0)
+	var cache_key := str(id) + ":" + str(blueprint.hash() if blueprint is Dictionary else 0) + ":" + str(door_section)
 	cache_identity = cache_key
 	if _cache.has(cache_key):
 		bounds = _cache[cache_key].bounds
 		_instances(_cache[cache_key].meshes, display)
 		return
 	var parts := item_parts(id, item)
+	if door_section != 0:
+		parts = parts.filter(func(part: Dictionary):
+			var frame: bool = absf(part.pos.x) > 0.91 or part.pos.y > 2.9
+			return frame if door_section == 2 else (not frame and (part.pos.x < 0 if door_section < 0 else part.pos.x >= 0))
+		)
 	var surfaces := {}
 	var first := true
 	for part in parts:

@@ -6,6 +6,7 @@ const Catalog = preload("res://scripts/inventory/ItemCatalog.gd")
 const Inventory = preload("res://scripts/inventory/Inventory.gd")
 const Houses = preload("res://scripts/world/HouseTemplates.gd")
 const Generator = preload("res://scripts/world/VillageGenerator.gd")
+const DoorGeometry = preload("res://scripts/world/DoorGeometry.gd")
 var world: Node3D
 var clock: float = 0.0
 var next_id: int = 1
@@ -19,10 +20,16 @@ var timer: float = 0.0
 var last_message: String = ""
 var active_interaction: String = ""
 var interacting_actor: Node3D
+var door_release: Dictionary = {}
 
 func _process(delta: float) -> void:
 	if world.is_loading or get_tree().paused: return
 	clock += delta
+	for key in door_release.keys():
+		if clock >= float(door_release[key]):
+			var result := set_door_open(str(key), false)
+			if result.ok: door_release.erase(key)
+			else: door_release[key] = clock + 0.6
 	timer -= delta
 	if timer <= 0:
 		timer = 0.5
@@ -53,7 +60,9 @@ func refresh() -> void:
 				resident.global_position = Vector3(record.position[0], record.position[1], record.position[2])
 				nodes[key] = resident
 			else:
-				var object = preload("res://scripts/world/FacilityObject.gd").new()
+				var object: Node3D
+				if record.kind == "door": object = preload("res://scripts/world/DoorObject.gd").new()
+				else: object = preload("res://scripts/world/FacilityObject.gd").new()
 				object.record = record
 				add_child(object)
 				object.global_position = Vector3(record.position[0], record.position[1], record.position[2])
@@ -82,6 +91,7 @@ func _near_plan(plan: Dictionary) -> bool:
 func _record(key: String, id: int, support: Vector3i, turns: int = 0) -> Dictionary:
 	var pos := Vector3(support) + Vector3(0.5, 1.0, 0.5)
 	if id == 503: pos += Basis(Vector3.UP, turns * PI * 0.5) * Vector3(0, 0, 0.5)
+	if id == 510: pos += Basis(Vector3.UP, turns * PI * 0.5) * Vector3(0.5, 0, 0)
 	return {"key": key, "kind": Items.KINDS.get(id, "workbench"), "item": {"id": id, "count": 1}, "support": [support.x, support.y, support.z], "position": [pos.x, pos.y, pos.z], "turns": turns, "storage": [], "input": {}, "input_order": [], "output": [], "fuel": 0, "lit": true, "planted_at": -1.0, "growth_stage": 0, "watered": false}
 
 func _ensure_village(plan: Dictionary) -> void:
@@ -91,6 +101,13 @@ func _ensure_village(plan: Dictionary) -> void:
 	for index in plan.houses.size():
 		var building: Dictionary = plan.houses[index]
 		var source := Houses.model(building.style, building.variation)
+		for door_index in source.doors.size():
+			var door_cell: Vector3i = source.doors[door_index] + Vector3i.DOWN
+			var support: Vector3i = building.origin + Houses.rotate_cell(door_cell, building.turns, source.size)
+			var door_key := prefix + "door:%d:%d" % [index, door_index]
+			var door := _record(door_key, 510, support, posmod(-int(building.turns), 4))
+			door["opened"] = false
+			_add_generated(door)
 		var fixtures := []
 		if building.role == "workshop":
 			fixtures = [[509, Vector3i(2, 0, 4)], [502, Vector3i(source.size.x - 3, 0, 4)], [501, Vector3i(2, 0, 5)]]
@@ -171,6 +188,7 @@ func place(item: Dictionary, cell: Vector3i, player_box: AABB, turns: int = 0) -
 	if not Catalog.is_facility(id): return fail("该物品不能作为设施放置")
 	while records.has("p:" + str(next_id)): next_id += 1
 	var record := _record("p:" + str(next_id), id, cell, posmod(turns, 4))
+	if id == 510: record["opened"] = false
 	record.item = item.duplicate(true)
 	record.item.count = 1
 	if preload("res://scripts/blueprint/BlueprintEquipment.gd").is_custom_item(item):
@@ -195,6 +213,7 @@ func place(item: Dictionary, cell: Vector3i, player_box: AABB, turns: int = 0) -
 	return {"ok": true, "record": record, "message": "已放置"}
 
 func bounds_for(record: Dictionary) -> AABB:
+	if record.kind == "door": return DoorGeometry.reserved_bounds(record)
 	var pos := Vector3(record.position[0], record.position[1], record.position[2])
 	var size: Vector3 = Items.size(int(record.item.id))
 	if record.get("size") is Array: size = Vector3(record.size[0], record.size[1], record.size[2])
@@ -210,13 +229,16 @@ func occupying(cell: Vector3i) -> String:
 func _index_support(record: Dictionary, remove: bool = false) -> void:
 	if record.get("removed", false) and not remove or record.kind == "resident": return
 	var box := bounds_for(record)
-	for z in range(floori(box.position.z), ceili(box.end.z)):
-		for x in range(floori(box.position.x), ceili(box.end.x)):
+	var support_box := DoorGeometry.threshold_bounds(record) if record.kind == "door" else box
+	for z in range(floori(support_box.position.z + 0.001), ceili(support_box.end.z - 0.001)):
+		for x in range(floori(support_box.position.x + 0.001), ceili(support_box.end.x - 0.001)):
 			var cell := Vector3i(x, record.support[1], z)
 			if remove:
 				if support_index.get(cell) == record.key: support_index.erase(cell)
 			else: support_index[cell] = record.key
-			for y in range(floori(box.position.y), ceili(box.end.y)):
+	for z in range(floori(box.position.z + 0.001), ceili(box.end.z - 0.001)):
+		for x in range(floori(box.position.x + 0.001), ceili(box.end.x - 0.001)):
+			for y in range(floori(box.position.y + 0.001), ceili(box.end.y - 0.001)):
 				var occupied := Vector3i(x, y, z)
 				if remove:
 					if occupied_index.get(occupied) == record.key: occupied_index.erase(occupied)
@@ -237,7 +259,45 @@ func pickup(key: String, inventory: RefCounted) -> Dictionary:
 	if nodes.has(key):
 		nodes[key].queue_free()
 		nodes.erase(key)
+	door_release.erase(key)
 	return {"ok": true, "message": "设施已回收"}
+
+func set_door_open(key: String, opened: bool) -> Dictionary:
+	var record: Dictionary = records.get(key, {})
+	if record.is_empty() or record.kind != "door" or record.get("removed", false): return fail("门不存在")
+	if bool(record.get("opened", false)) == opened: return {"ok": true, "message": ""}
+	var object: Node3D = nodes.get(key)
+	if object != null and object.is_moving(): return fail("门扇正在移动")
+	var query := PhysicsShapeQueryParameters3D.new()
+	var shape := BoxShape3D.new()
+	# Ignore contact within the physics solver's tolerance. A person resting
+	# against the outside is safe; a body inside the opening arc still blocks it.
+	shape.size = DoorGeometry.LEAF_SIZE - Vector3(0.006, 0.004, 0.006)
+	query.shape = shape
+	query.collision_mask = 3
+	query.margin = 0.0
+	if object != null: query.exclude = object.excluded_rids()
+	var root := DoorGeometry.transform_for(record)
+	for step in range(1, 13):
+		var amount := float(step) / 12.0
+		if not opened: amount = 1.0 - amount
+		for side in [-1, 1]:
+			query.transform = root * DoorGeometry.leaf_transform(side, amount)
+			if not world.get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty():
+				return fail("门边有人或物品挡住，请留出开关空间")
+	record["opened"] = opened
+	mark(record)
+	if object != null: object.update_state()
+	return {"ok": true, "message": "门已打开" if opened else "门已关上"}
+
+func open_for_resident(position: Vector3, movement: Vector3) -> void:
+	if movement.length_squared() < 0.01: return
+	var ahead := position + movement.normalized() * 0.75 + Vector3.UP
+	var key := occupying(Vector3i(ahead.floor()))
+	var record: Dictionary = records.get(key, {})
+	if record.get("kind", "") != "door": return
+	if set_door_open(key, true).ok:
+		door_release[key] = clock + 1.8
 
 func mark(record: Dictionary) -> void:
 	edits[record.key] = record
@@ -291,6 +351,8 @@ func act(key: String, action: String, inventory: RefCounted, player: Node3D, val
 	if record.is_empty() or record.get("removed", false): return fail("设施不存在")
 	_simulate(record)
 	match action:
+		"door":
+			return set_door_open(key, not bool(record.get("opened", false)))
 		"fuel":
 			if record.kind != "furnace" or not Items.FUELS.has(value): return fail("燃料无效")
 			if int(record.fuel) + int(Items.FUELS[value]) > 128: return fail("炉内已有足够燃料")
@@ -439,6 +501,7 @@ func load_data(data: Dictionary) -> void:
 	known_villages.clear()
 	support_index.clear()
 	occupied_index.clear()
+	door_release.clear()
 	clock = float(data.get("clock", 0.0))
 	next_id = int(data.get("next_id", 1))
 	for record in data.get("objects", []):

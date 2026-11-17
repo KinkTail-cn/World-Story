@@ -212,10 +212,10 @@ func _run() -> void:
 	assert(panel.crafting_box.is_visible_in_tree() and not panel.creative_section.is_visible_in_tree(), "合成页必须显示合成栏并隐藏物品库")
 	panel._set_creative_view(true)
 	
-	# 测试全部分类 (83)
+	# 测试全部分类 (84)
 	panel._select_category("all")
 	await process_frame
-	assert(panel.creative_grid.get_child_count() == 83, "全部分类包含原有 64 种物品和 19 种村庄设施、生活材料")
+	assert(panel.creative_grid.get_child_count() == 84, "全部分类包含原有物品、村庄设施、生活材料和双扇木门")
 	
 	# 测试方块分类 (20)
 	panel._select_category("blocks")
@@ -238,7 +238,7 @@ func _run() -> void:
 	assert(panel.creative_grid.get_child_count() == 2, "图纸分类下应展示 2 种图纸笔记")
 	panel._select_category("facilities")
 	await process_frame
-	assert(panel.creative_grid.get_child_count() == 9, "生活设施分类包含九种实际可交互的设施")
+	assert(panel.creative_grid.get_child_count() == 10, "生活设施分类包含木门等十种实际可交互的设施")
 	panel._select_category("supplies")
 	await process_frame
 	assert(panel.creative_grid.get_child_count() == 10, "生活材料分类包含十种加工、种植、食物与用水物品")

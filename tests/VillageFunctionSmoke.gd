@@ -50,6 +50,22 @@ func _run() -> void:
 	check(kinds.get("resident", 0) == 4 and kinds.get("workbench", 0) > 0 and kinds.get("furnace", 0) > 0, "A natural village has residents and a functioning production workshop")
 	var homes: int = plan.houses.filter(func(building: Dictionary): return building.role == "home").size()
 	check(kinds.get("bed", 0) == homes and kinds.get("chair", 0) == homes and kinds.get("crop", 0) == 8 and kinds.get("well", 0) == 1, "Every unmodified home, field and public well receives its full functional facilities")
+	var door_count := 0
+	for building in plan.houses:
+		door_count += preload("res://scripts/world/HouseTemplates.gd").model(building.style, building.variation).doors.size()
+	check(kinds.get("door", 0) == door_count, "Every front entrance and courtyard annex receives a door")
+	var all_open := true
+	var door_keys: Array[String] = []
+	for record in life.records.values():
+		if record.kind == "door":
+			door_keys.append(record.key)
+			all_open = life.set_door_open(record.key, true).ok and all_open
+	check(all_open, "All generated door orientations open into clear room space")
+	await frames(18)
+	var all_closed := true
+	for door_key in door_keys: all_closed = life.set_door_open(door_key, false).ok and all_closed
+	check(all_closed, "All village front and annex doors can close again")
+	await frames(18)
 	if resident_key.is_empty() or chest_key.is_empty(): quit(1); return
 	var resident: CharacterBody3D = life.nodes[resident_key]
 	var start := resident.global_position

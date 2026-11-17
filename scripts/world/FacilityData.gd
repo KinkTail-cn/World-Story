@@ -57,8 +57,9 @@ static func validation_error(data: Variant) -> String:
 			continue
 		if not item_error(record.get("item")).is_empty(): return "设施物品记录无效"
 		if VillageItems.KINDS.get(int(record.item.id), "") != record.get("kind", ""): return "设施功能类别无效"
-		if record.has("size") and (not vector(record.size) or record.size.any(func(value): return value < 0.005 or value > 2.6)): return "设施尺寸无效"
-		for field in ["removed", "lit", "watered"]:
+		var size_limit := 3.00001 if record.kind == "door" else 2.6
+		if record.has("size") and (not vector(record.size) or record.size.any(func(value): return value < 0.005 or value > size_limit)): return "设施尺寸无效"
+		for field in ["removed", "lit", "watered", "opened"]:
 			if record.has(field) and not record[field] is bool: return "设施开关状态无效"
 		if not integer(record.get("turns", 0)) or record.get("turns", 0) < 0 or record.get("turns", 0) > 3: return "设施朝向无效"
 		for field in ["storage", "output"]:

@@ -61,9 +61,12 @@ static func validation_error(blueprint: Dictionary) -> String:
 			return "蓝图包含无效的方块坐标"
 	if str(blueprint.get("category", "")) not in CATEGORIES:
 		var bounds := item_bounds(blueprint)
-		var limit := 2.6 if str(blueprint.category) == "道具摆件" else 1.8
+		var door := equipment_id(blueprint) == 510
+		var limit := 3.00001 if door else (2.6 if str(blueprint.category) == "道具摆件" else 1.8)
 		if maxf(bounds.size.x, maxf(bounds.size.y, bounds.size.z)) > limit:
 			return "该类别的成品整体尺寸过大"
+		if door and (bounds.size.x < 1.7 or bounds.size.x > 2.00001 or bounds.size.y < 2.0 or bounds.size.z > 0.3):
+			return "双扇木门应为 1.7–2 米宽、2–3 米高、厚度不超过 0.3 米"
 		if str(blueprint.category) in ["工具", "武器"] and bounds.get_center().length() > 1.5:
 			return "请围绕握柄基准搭建工具或武器"
 	return ""

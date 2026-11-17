@@ -12,6 +12,7 @@ var yaw: float = 0.35
 var pitch: float = 0.65
 var distance: float = 105.0
 var focus := Vector3(0, 7, 0)
+var door_anchors: Array[Dictionary] = []
 
 class StageWorld extends "res://scripts/world/VoxelWorld.gd":
 	var solids: Dictionary = {}
@@ -48,6 +49,8 @@ func _ready() -> void:
 		for index in Houses.STYLES.size():
 			var shape := Houses.model(Houses.STYLES[index], layout_seed + index)
 			var origin := Vector3i(index * 19 - 44, 5, -5)
+			for door in shape.doors:
+				door_anchors.append({"support": origin + Vector3i(door) + Vector3i.DOWN, "turns": 0})
 			for cell in shape.cells:
 				stage.solids[origin + cell] = shape.cells[cell]
 			for z in range(shape.size.z - 1, 19):
@@ -58,6 +61,10 @@ func _ready() -> void:
 				stage.solids[Vector3i(x, 5, z)] = 13
 	else:
 		plan = Villages.make_layout(layout_seed)
+		for building in plan.houses:
+			var source := Houses.model(building.style, building.variation)
+			for door in source.doors:
+				door_anchors.append({"support": building.origin + Houses.rotate_cell(Vector3i(door) + Vector3i.DOWN, building.turns, source.size), "turns": posmod(-int(building.turns), 4)})
 		var columns := Villages.compile(plan, _flat_height)
 		for point in columns:
 			var values: PackedInt32Array = columns[point]
@@ -92,6 +99,10 @@ func _finish_stage() -> void:
 		for x in range(floori(float(rect.position.x) / 16), floori(float(rect.end.x - 1) / 16) + 1):
 			world._load_or_create_chunk(Vector2i(x, z))
 		await get_tree().process_frame
+	for index in door_anchors.size():
+		var anchor: Dictionary = door_anchors[index]
+		world.life._add_generated(world.life._record("preview:door:" + str(index), 510, anchor.support, anchor.turns))
+	world.life.refresh()
 	showcase_ready.emit()
 
 func _unhandled_input(event: InputEvent) -> void:

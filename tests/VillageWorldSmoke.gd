@@ -78,6 +78,9 @@ func _run() -> void:
 		for x in range(floori(float(house_bounds.position.x) / 16), floori(float(house_bounds.end.x - 1) / 16) + 1):
 			world._load_or_create_chunk(Vector2i(x, z))
 	await physics_frame
+	var door_key := "v:%d:%d:door:0:0" % [plan.region.x, plan.region.y]
+	check(world.life.records.has(door_key) and world.life.set_door_open(door_key, true).ok, "The generated house has a real door that can be opened")
+	for tick in range(18): await physics_frame
 	var facing := Vector3(house.facing.x, 0, house.facing.y)
 	var doorway := Vector3(house.door) + Vector3(0.5, 0.02, 0.5)
 	game.player.global_position = doorway + facing * 2.4
@@ -186,6 +189,17 @@ func capture_village(game: Node3D, plan: Dictionary) -> void:
 	await frames(6)
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png("C:/Users/Qi/AppData/Local/Temp/opencode/village-street-view.png")
+	var house: Dictionary = plan.houses[1]
+	var door_key := "v:%d:%d:door:1:0" % [plan.region.x, plan.region.y]
+	if game.world.life.records.has(door_key):
+		var record: Dictionary = game.world.life.records[door_key]
+		var root_transform := preload("res://scripts/world/DoorGeometry.gd").transform_for(record)
+		var facing := Vector3(house.facing.x, 0, house.facing.y)
+		camera.position = root_transform.origin + facing * 5.0 + root_transform.basis.x * 0.15 + Vector3.UP * 1.6
+		camera.look_at(root_transform.origin + Vector3.UP * 1.4)
+		await frames(6)
+		await RenderingServer.frame_post_draw
+		root.get_texture().get_image().save_png("C:/Users/Qi/AppData/Local/Temp/opencode/wooden-door-village.png")
 	camera.queue_free()
 	game.player.camera.current = true
 	game.hud.visible = true

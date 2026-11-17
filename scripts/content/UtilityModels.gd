@@ -68,6 +68,18 @@ static func parts(id: int) -> Array[Dictionary]:
 				for z in [-0.35, 0.35]:
 					_box(result, Vector3(x, 0.36, z), Vector3(0.14, 0.72, 0.14), dark)
 			_box(result, Vector3(0.05, 0.88, 0), Vector3(0.52, 0.04, 0.6), Color("538db3"))
+		510:
+			# Door frames stay fixed; the two panels rotate as complete assemblies.
+			for side in [-1, 1]:
+				for y in range(29):
+					result.append({"pos": Vector3(side * 0.95, 0.05 + y * 0.1, 0), "edge": 0.1, "tint": dark})
+				for slat in range(9):
+					for y in range(28):
+						result.append({"pos": Vector3(side * (0.05 + slat * 0.1), 0.1 + y * 0.1, 0), "edge": 0.1, "tint": dark if y in [1, 13, 26] else wood.lightened(0.025 * (slat % 2))})
+				for z in [-0.1, 0.1]:
+					_box(result, Vector3(side * 0.15, 1.38, z), Vector3(0.05, 0.15, 0.05), Color("c9ad6b"))
+			for x in range(20):
+				result.append({"pos": Vector3(-0.95 + x * 0.1, 2.95, 0), "edge": 0.1, "tint": dark})
 		601:
 			_box(result, Vector3(0, 0.2, 0), Vector3(0.06, 0.45, 0.06), wood)
 		602, 608:

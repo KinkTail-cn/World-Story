@@ -403,6 +403,12 @@ func _open_document(document: Node3D) -> void:
 func _open_facility(key: String) -> void:
 	if is_loading or hud.any_modal_visible() or game_settings.visible: return
 	if key != "workbench" and (not world.life.records.has(key) or world.life.records[key].get("removed", false)): return
+	if world.life.records.get(key, {}).get("kind", "") == "door":
+		var result: Dictionary = world.life.act(key, "door", inventory, player)
+		world.life.last_message = ""
+		player.place_delay = maxf(player.place_delay, 0.25)
+		if result.ok: game_audio.play("place")
+		return
 	player.controls_enabled = false
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	facility_panel.open_for(key, world.life, inventory, player)

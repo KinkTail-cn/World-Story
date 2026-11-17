@@ -42,7 +42,7 @@ Godot 4.7.2 的 3D 体素沙盒。以自由采集、方块拆建、第三人称�
 ## 当前内容
 
 - 随机生成的无限世界，包含海岸、丘陵、森林、雪山、矿石与自然村落；地形、树木、村落与安全出生点随种子变化。
-- 20 种方块、9 种木/石/铁工具、5 种特色武器、28 件装备、笔记本和蓝色图纸，加上 9 种生活设施与 10 种生活材料/食物，共 83 种内置物品。创造背包提供“生活设施”“材料与食物”分类。
+- 20 种方块、9 种木/石/铁工具、5 种特色武器、28 件装备、笔记本和蓝色图纸，加上 10 种生活设施与 10 种生活材料/食物，共 84 种内置物品。创造背包提供“生活设施”“材料与食物”分类。
 - 快捷栏选中、第三人称右手建材、第一人称手持显示和实际放置类型同步；草方块显示绿顶泥土侧面，原木显示浅色截面。
 - 角色移动、冲刺、跳跃、跟随相机、防遮挡弹簧臂、第一 / 第三人称切换。
 - 天空采用晴朗海岛午后的配色：较深的高空蓝、浅蓝中层和柔和地平线，暖白太阳与轻光晕配合方块体积云、高层薄云；云层缓慢漂移，远行时持续分布在玩家周围。海面与远景使用协调的雾色，远处浪纹逐渐淡出，减少刺眼亮带。详细设计见 [天空与海天视觉方案](doc/天空与海天视觉方案.md)。
@@ -91,6 +91,10 @@ Godot 4.7.2 的 3D 体素沙盒。以自由采集、方块拆建、第三人称�
 - 旧存档按原有生成规则继续。新建世界没有固定晴风岛、初始小屋或强制村落开局，原点区域也使用种子地形。
 
 住宅空位会补齐床与椅子，作坊配置蓝图工作台、熔炉和储物箱，仓房提供容器，公共区域提供井台与可种植的农箱；四类村民沿村路活动并提供有限库存的交易。设施状态和交易库存随世界保存，离开村落后释放场景节点，再次进入会恢复。
+
+房屋正门和庭院附屋配有双扇木门，**瞄准按 R 或右键直接开关**。关门时阻挡通行，开门后两扇门向屋内转开；有人或物品挡住开关范围时不会强行关闭。村民需要经过门口时会开门，通过后再关门。已有村庄会在完整、未占用的门洞补门，开关和拆除状态随世界保存。
+
+木门也可在背包合成台用 **木板＋木棍＋铁锭** 制作，或在蓝图工坊的“物品与设施 → 双扇木门”载入基础造型后编辑制作。放置时为两格宽、三格高的门框和向内开门的位置留出空间。
 
 可在 Godot 中分别打开 `scenes/HouseStylesPreview.tscn`、`scenes/VillagePreview.tscn` 按 F6 查看房型和组合预览；右键拖动观察，滚轮缩放。完整规则和验收见 [村落生成与房屋规范](doc/村落生成与房屋规范.md)。
 
@@ -181,7 +185,7 @@ Godot 4.7.2 的 3D 体素沙盒。以自由采集、方块拆建、第三人称�
 & .\tests\RunTests.ps1
 ```
 
-`RunTests.ps1` 自动发现并运行 `tests/` 下的 GDScript 测试，当前共 46 套。每套测试使用独立临时用户目录和日志，依据进程退出码、通过标记和脚本错误判断结果，默认单套超时 40 秒。可通过 `-GodotPath "你的Godot路径"` 指定引擎，或通过 `-Suites @('WorkshopProductsIntegrity', 'VillageFacilitiesIntegrity', 'WorkbenchInteractionSmoke', 'VillageFunctionSmoke')` 检查工作台与村落功能。
+`RunTests.ps1` 自动发现并运行 `tests/` 下的 GDScript 测试，当前共 47 套。每套测试使用独立临时用户目录和日志，依据进程退出码、通过标记和脚本错误判断结果，默认单套超时 40 秒。可通过 `-GodotPath "你的Godot路径"` 指定引擎，或通过 `-Suites @('DoorIntegrity', 'VillageFunctionSmoke', 'VillageWorldSmoke')` 检查门与村落通行。
 
 覆盖范围包括移动拆建、游泳、水花、坐下轮盘、背包鼠标拖动、方块/工具/武器、蓝图几何、纸笔、菜单、设置和存档。`BlueprintCraftSmoke.gd` 额外覆盖用料折算、失败事务、设计快照、蓝图库选择、实际制作按钮、装备替换、快捷栏模型、七部位挂接和 JSON 读档后的穿戴模型恢复。`LifecycleIntegrity` 与 `SaveRecoveryIntegrity` 各主动制造一次备份写入失败，以验证旧内容保护，因此其引擎日志各包含一条预期文件错误。
 
@@ -217,6 +221,8 @@ Godot 4.7.2 的 3D 体素沙盒。以自由采集、方块拆建、第三人称�
 
 `WorkshopProductsIntegrity` 验证各成品类别的模板、用料、制作、手持和保存；`VillageFacilitiesIntegrity` 验证存取、冶炼、种植、食物、床、椅、井、灯和交易失败保护；`WorkbenchInteractionSmoke` 通过真实 R 键进入工作台、制作放置自定义容器并检查小窗口；`VillageFunctionSmoke` 验证自然村落的设施、村民活动、实际交易与卸载/读档后的完整物品恢复。
 
+`DoorIntegrity` 检查真实玩家被关门阻挡、实际 R 键与长按右键、开门后步行穿过、门口有人时的关闭保护、四向放置、村民实际穿门及自动关闭、自定义蓝图门的回收、JSON 保存恢复和占用释放。实际窗口追加 `-- --capture` 输出门的开关画面。
+
 ## 结构
 
 | 文件 | 职责 |
@@ -226,6 +232,7 @@ Godot 4.7.2 的 3D 体素沙盒。以自由采集、方块拆建、第三人称�
 | `scripts/world/HouseTemplates.gd` / `VillageGenerator.gd` | 独立房屋、村落街坊、公共空间、寻路、选址与局部地形整治 |
 | `scripts/world/VillageLife.gd` / `FacilityObject.gd` / `VillageResident.gd` | 可交互设施、村民、生产与保存的运行状态 |
 | `scripts/world/FacilityData.gd` / `scripts/ui/FacilityPanel.gd` | 设施存档校验和操作界面 |
+| `scripts/world/DoorGeometry.gd` / `DoorObject.gd` | 双扇门的门框、铰接动画、实体碰撞与开关检测 |
 | `scripts/content/VillageItems.gd` / `UtilityModels.gd` / `scripts/blueprint/UtilityPresets.gd` | 新物品、配方、基础造型及可编辑副本 |
 | `scenes/HouseStylesPreview.tscn` / `VillagePreview.tscn` | 五种房型与随机村落的独立预览 |
 | `scripts/world/GroundCover.gd` | 稀疏草叶网格，不进入地形碰撞和保存的方块数据 |

@@ -26,6 +26,7 @@ static func model(style: String, variation: int = 0) -> Dictionary:
 	var cells: Dictionary = {}
 	var room := Rect2i(1, 1, extent.x - 2, extent.y - 4)
 	var doorway_x := extent.x / 2 - 1
+	var doors: Array[Vector3i] = []
 	var wall := 7
 	var floor_material := 7
 	var roof := 8
@@ -53,6 +54,7 @@ static func model(style: String, variation: int = 0) -> Dictionary:
 		_gable_roof(cells, room.grow(1), 5, roof, wall)
 	var front := room.end.y - 1
 	_door(cells, doorway_x, front)
+	doors.append(Vector3i(doorway_x, 1, front))
 	# A level porch connects directly to village paths without a one-block step.
 	for z in range(front + 1, extent.y):
 		for x in range(doorway_x - 1, doorway_x + 3):
@@ -65,6 +67,7 @@ static func model(style: String, variation: int = 0) -> Dictionary:
 		_gable_roof(cells, annex.grow(1), 4, roof, wall)
 		# The second room opens into the sheltered courtyard, not into a wall.
 		_door(cells, 9, annex.end.y - 1)
+		doors.append(Vector3i(9, 1, annex.end.y - 1))
 		for z in range(7, 11):
 			for x in range(8, 12):
 				_put(cells, Vector3i(x, 0, z), 13 if (x + z) % 3 == 0 else 14)
@@ -92,6 +95,7 @@ static func model(style: String, variation: int = 0) -> Dictionary:
 		"style": style, "title": TITLES[style], "variation": variant,
 		"size": Vector3i(extent.x, tallest + 1, extent.y), "cells": cells,
 		"door": Vector3i(doorway_x, 1, front),
+		"doors": doors,
 		"entrance": Vector3i(doorway_x, 1, extent.y - 1),
 		"room": room
 	}
@@ -115,6 +119,7 @@ static func oriented(style: String, variation: int, turns: int) -> Dictionary:
 		"turns": turns, "cells": cells,
 		"size": Vector3i(extent.z, extent.y, extent.x) if turns % 2 else extent,
 		"door": rotate_cell(source.door, turns, extent),
+		"doors": source.doors.map(func(cell: Vector3i): return rotate_cell(cell, turns, extent)),
 		"entrance": rotate_cell(source.entrance, turns, extent)
 	}
 	_rotated[key] = result

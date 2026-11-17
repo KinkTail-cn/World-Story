@@ -60,6 +60,7 @@ func _physics_process(delta: float) -> void:
 			actor.rotation.y = lerp_angle(actor.rotation.y, atan2(-horizontal.x, -horizontal.z), minf(1, delta * 8))
 	velocity.x = horizontal.x
 	velocity.z = horizontal.z
+	world.life.open_for_resident(global_position, horizontal)
 	velocity.y = 0.0 if is_on_floor() else velocity.y - delta * 18.0
 	var previous := global_position
 	move_and_slide()
