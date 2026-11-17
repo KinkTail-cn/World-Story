@@ -24,6 +24,7 @@ var held_item: Node3D
 var swing_phase: float = 0.0
 var place_time: float = 0.0
 var consume_time: float = 0.0
+var seat_feet_supported: bool = false
 var equipment_visuals: Node3D
 var swim_phase: float = 0.0
 var idle_phase: float = 0.0
@@ -147,7 +148,7 @@ func animate(delta: float, speed: float, airborne: bool, mining: bool, swimming:
 	var previous_left: Vector3 = left_arm.rotation
 	var previous_right: Vector3 = right_arm.rotation
 	
-	# 1. 坐下姿态（完全保持原有物理与自动化测试断言规范）
+	# 1. 地面伸腿，椅边或高台边缘垂腿。
 	if sitting:
 		swing_cycle_running = false
 		swing_cycle_time = 0.0
@@ -157,9 +158,9 @@ func animate(delta: float, speed: float, airborne: bool, mining: bool, swimming:
 		left_leg.rotation = Vector3(PI * 0.5, 0.0, 0.0)
 		right_leg.rotation = Vector3(PI * 0.5, 0.0, 0.0)
 		if left_lower_leg != null:
-			left_lower_leg.rotation = Vector3(-PI * 0.5, 0.0, 0.0)
+			left_lower_leg.rotation = Vector3(0.06 if seat_feet_supported else -PI * 0.5, 0.0, 0.0)
 		if right_lower_leg != null:
-			right_lower_leg.rotation = Vector3(-PI * 0.5, 0.0, 0.0)
+			right_lower_leg.rotation = Vector3(0.06 if seat_feet_supported else -PI * 0.5, 0.0, 0.0)
 		left_arm.rotation = Vector3(0.5, 0, -0.05)
 		right_arm.rotation = Vector3(0.5, 0, 0.05)
 		if left_forearm != null:

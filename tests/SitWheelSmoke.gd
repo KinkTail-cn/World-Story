@@ -43,7 +43,8 @@ func _run() -> void:
 	assert(player.sitting, "A right click in sitting mode sits on the aimed block")
 	assert(player.seat_cell == selected_cell and absf(player.position.y - selected_cell.y - 1.01) < 0.001)
 	assert(absf(player.visual.left_leg.rotation.x - PI * 0.5) < 0.001, "Sitting pose must extend both legs forward")
-	assert(absf(player.visual.position.y + 0.5625) < 0.001, "Hips must rest above the support block")
+	var hip_height: float = player.visual.left_leg.global_position.y - selected_cell.y - 1.0
+	assert(hip_height > 0.1 and hip_height < 0.2, "Hips must rest above the support block while leaving room for worn boots")
 	var count: int = player.mined
 	player._mine()
 	player._place()
@@ -65,7 +66,8 @@ func _run() -> void:
 	assert(player.target_id == 0)
 	player.select_function(1)
 	await _right_click()
-	assert(player.active_function == 1 and not player.sitting, "Sitting mode can be selected before aiming at a block and stays ready after clicking empty space")
+	assert(player.active_function == 1 and player.sitting, "Clicking empty space in sitting mode sits at the player's current location")
+	assert(player._stand_up())
 	player.pitch.rotation.x = -0.45
 	for id in range(1, 21):
 		world.set_block(cell, id)
@@ -110,7 +112,8 @@ func _run() -> void:
 	player.target_id = world.get_block(cell)
 	player.select_function(1)
 	player._place()
-	assert(not player.sitting, "Sitting must reject occupied space above the block")
+	assert(player.sitting and player.seat_cell == cell + Vector3i.UP, "A side target with blocks above resolves to the top of the stack")
+	assert(player._stand_up())
 	world.set_block(cell + Vector3i.UP, 0)
 	for frame in range(3):
 		await physics_frame

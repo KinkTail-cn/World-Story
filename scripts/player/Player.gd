@@ -26,6 +26,7 @@ var world: Node3D
 var inventory: RefCounted
 var target_document: Node3D
 var target_facility: String = ""
+var target_hit: Dictionary = {}
 var selected_slot: int = 0
 var first_person: bool = false
 var food_display_active: bool = false
@@ -46,6 +47,10 @@ var submerged: bool = false
 var active_function: int = 0
 var sitting: bool = false
 var seat_cell := Vector3i.ZERO
+var seat_support: WeakRef
+var seat_local_position := Vector3.ZERO
+var seat_in_place: bool = false
+var seat_return_position := Vector3.ZERO
 var interaction_blocked: bool = false
 var controls_enabled: bool = true
 var effects_root: Node3D
@@ -170,6 +175,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("sit"):
 		select_function(1)
 		if active_function == 1 and not sitting: _sit_on_target()
+	if event.is_action_pressed("place") and active_function == 1 and not sitting and not interaction_blocked:
+		_update_target()
+		_sit_on_target()
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("interact") and not event.is_echo() and target_document != null:
 		document_requested.emit(target_document)
 	elif event.is_action_pressed("interact") and not event.is_echo():
@@ -249,7 +259,7 @@ func select_function(function: int) -> void:
 			return
 	active_function = clampi(function, 0, 1)
 	if active_function == 1:
-		message.emit("坐下功能：瞄准任意方块，按右键坐到顶面")
+		message.emit("坐下功能：右键坐下，可瞄准地面或物体，也可原地坐下")
 	else:
 		message.emit("挖掘 / 建造：左键挖掘，右键放置")
 	function_changed.emit(active_function, sitting)
@@ -268,38 +278,99 @@ func _can_occupy(pos: Vector3, seated: bool) -> bool:
 	return get_world_3d().direct_space_state.intersect_shape(occupancy_query, 1).is_empty()
 
 func _sit_on_target() -> bool:
-	if target_id <= 0 or world.get_block(target_cell) == 0:
-		return false
-	var pos := Vector3(target_cell) + Vector3(0.5, 1.01, 0.5)
-	if pos.distance_to(global_position + Vector3(0, 0.9, 0)) > REACH:
-		message.emit("方块太远，请靠近后坐下")
-		return false
-	var facing := -rig.global_basis.z
-	var feet: Vector3i = Vector3i((pos + facing * 0.68 + Vector3(0, 0.1, 0)).floor())
-	if not _can_occupy(pos, true) or world.get_block(feet) != 0:
-		message.emit("方块上方或前方空间不足，无法坐下")
-		return false
-	seat_cell = target_cell
+	var facility: Dictionary = world.life.records.get(target_facility, {}) if world.get("life") != null else {}
+	if facility.get("kind", "") == "chair" and not facility.get("removed", false):
+		var seated := sit_at_facility(facility)
+		if seated: world.life.feedback(str(facility.key), "sit", self)
+		return seated
+	if target_id > 0 and world.get_block(target_cell) > 0:
+		var support := target_cell
+		# A side hit on a wall or stair resolves to the top of that column.
+		while support.y < world.CHUNK_HEIGHT - 1 and world.get_block(support + Vector3i.UP) > 0: support.y += 1
+		var pos := Vector3(support) + Vector3(0.5, 1.01, 0.5)
+		if not target_hit.is_empty() and Vector3i((Vector3(target_hit.position) - Vector3(target_hit.normal) * 0.01).floor()) == target_cell:
+			pos.x = clampf(target_hit.position.x, support.x + 0.04, support.x + 0.96)
+			pos.z = clampf(target_hit.position.z, support.z + 0.04, support.z + 0.96)
+		return _begin_sitting(pos, support)
+	if not target_hit.is_empty() and is_instance_valid(target_hit.get("collider")):
+		return _sit_on_surface(target_hit)
+	# Looking at the sky, water or an out-of-range target still allows sitting
+	# where the player is. Use a floor hit when there is one beneath their feet.
+	var floor_query := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP * 0.1, global_position + Vector3.DOWN * 2.0, 1)
+	floor_query.exclude = [get_rid()]
+	var floor_hit := get_world_3d().direct_space_state.intersect_ray(floor_query)
+	if not floor_hit.is_empty():
+		var support := Vector3i((Vector3(floor_hit.position) - Vector3(floor_hit.normal) * 0.01).floor())
+		var body: Node3D = floor_hit.collider if world.get_block(support) == 0 or floor_hit.collider.has_meta("facility") or floor_hit.collider.has_meta("document") else null
+		return _begin_sitting(Vector3(floor_hit.position) + Vector3.UP * 0.01, support, body)
+	return _begin_sitting(global_position, Vector3i(global_position.floor()), null, true)
+
+func _sit_on_surface(hit: Dictionary) -> bool:
+	var body: Node3D = hit.collider
+	var point: Vector3 = hit.position
+	var bounds := AABB(point, Vector3.ZERO)
+	for mesh in body.find_children("*", "MeshInstance3D", true, false):
+		if mesh.is_visible_in_tree() and mesh.mesh != null: bounds = bounds.merge(mesh.global_transform * mesh.mesh.get_aabb())
+	for shape in body.find_children("*", "CollisionShape3D", true, false):
+		if not shape.disabled and shape.shape != null: bounds = bounds.merge(shape.global_transform * shape.shape.get_debug_mesh().get_aabb())
+	var inside := point - Vector3(hit.normal) * 0.035
+	inside.x = clampf(inside.x, bounds.position.x + minf(0.02, bounds.size.x * 0.25), bounds.end.x - minf(0.02, bounds.size.x * 0.25))
+	inside.z = clampf(inside.z, bounds.position.z + minf(0.02, bounds.size.z * 0.25), bounds.end.z - minf(0.02, bounds.size.z * 0.25))
+	var top_query := PhysicsRayQueryParameters3D.create(Vector3(inside.x, bounds.end.y + 0.05, inside.z), Vector3(inside.x, bounds.position.y - 0.05, inside.z), 1)
+	top_query.exclude = [get_rid()]
+	var top := get_world_3d().direct_space_state.intersect_ray(top_query)
+	var pos := Vector3(top.position) if not top.is_empty() else Vector3(inside.x, bounds.end.y, inside.z)
+	if not top.is_empty(): body = top.collider
+	return _begin_sitting(pos + Vector3.UP * 0.01, Vector3i((pos - Vector3.UP * 0.01).floor()), body)
+
+func _begin_sitting(pos: Vector3, support: Vector3i, body: Node3D = null, in_place: bool = false, yaw: float = NAN) -> bool:
+	seat_return_position = global_position
+	seat_cell = support
+	seat_support = weakref(body) if body != null else null
+	seat_local_position = body.to_local(pos) if body != null else Vector3.ZERO
+	seat_in_place = in_place
 	set_flying(false)
 	sitting = true
+	active_function = 1
+	_seat_input_grace = 0.18
 	swimming = false
 	velocity = Vector3.ZERO
 	global_position = pos
 	collision.shape = sitting_shape
 	collision.position.y = 0.65
 	visual.position.y = -0.5625
-	visual.rotation.y = rig.rotation.y
+	visual.rotation.y = rig.rotation.y if is_nan(yaw) else yaw
+	var feet := pos - Basis(Vector3.UP, visual.rotation.y).z * 0.65
+	var feet_query := PhysicsRayQueryParameters3D.create(feet + Vector3.UP * 0.12, feet + Vector3.DOWN * 0.45, 1)
+	feet_query.exclude = [get_rid()]
+	var feet_hit := get_world_3d().direct_space_state.intersect_ray(feet_query)
+	visual.seat_feet_supported = not feet_hit.is_empty() and float(feet_hit.position.y) >= pos.y - 0.15
 	visual.animate(0.0, 0.0, false, false, false, false, true)
+	if visual.seat_feet_supported:
+		var lowest := INF
+		for leg in [visual.left_lower_leg, visual.right_lower_leg]:
+			for mesh in leg.find_children("*", "MeshInstance3D", true, false):
+				if mesh.visible and mesh.mesh != null: lowest = minf(lowest, (mesh.global_transform * mesh.mesh.get_aabb()).position.y)
+		# Worn boots can extend below the bare foot; keep the whole rigid
+		# assembly above the ground without changing any cube dimensions.
+		visual.position.y += maxf(0, pos.y - 0.005 - lowest)
 	_update_camera_height()
 	function_changed.emit(active_function, sitting)
 	message.emit("已坐下 · F、WASD 或空格起身")
 	return true
 
+func _update_seat_support() -> bool:
+	if seat_support != null:
+		var body: Node3D = seat_support.get_ref()
+		if not is_instance_valid(body) or not body.is_inside_tree() or body.is_queued_for_deletion(): return false
+		global_position = body.to_global(seat_local_position)
+		return true
+	return seat_in_place or world.get_block(seat_cell) > 0
+
 func _stand_up(force: bool = false) -> bool:
 	var destination: Vector3 = global_position
 	var found: bool = false
-	for offset in [Vector3.ZERO, Vector3.RIGHT, Vector3.LEFT, Vector3.FORWARD, Vector3.BACK]:
-		var candidate: Vector3 = global_position + offset
+	for candidate in [global_position, global_position + Vector3.RIGHT, global_position + Vector3.LEFT, global_position + Vector3.FORWARD, global_position + Vector3.BACK, seat_return_position]:
 		if _can_occupy(candidate, false):
 			destination = candidate
 			found = true
@@ -310,6 +381,9 @@ func _stand_up(force: bool = false) -> bool:
 			return false
 		destination = world.get_spawn_position()
 	sitting = false
+	visual.seat_feet_supported = false
+	seat_support = null
+	seat_in_place = false
 	active_function = 0
 	global_position = destination
 	velocity = Vector3.ZERO
@@ -324,22 +398,8 @@ func _stand_up(force: bool = false) -> bool:
 
 func sit_at_facility(record: Dictionary) -> bool:
 	if sitting and not _stand_up(): return false
-	set_flying(false)
-	sitting = true
-	_seat_input_grace = 0.18
-	active_function = 1
-	swimming = false
-	seat_cell = Vector3i(record.support[0], record.support[1], record.support[2])
-	global_position = Vector3(record.position[0], record.position[1] + 0.53, record.position[2])
-	velocity = Vector3.ZERO
-	collision.shape = sitting_shape
-	collision.position.y = 0.65
-	visual.position.y = -0.5625
-	visual.rotation.y = float(record.get("turns", 0)) * PI * 0.5
-	visual.animate(0.0, 0.0, false, false, false, false, true)
-	_update_camera_height()
-	function_changed.emit(active_function, sitting)
-	return true
+	var body: Node3D = world.life.nodes.get(str(record.key)) if world.get("life") != null else null
+	return _begin_sitting(Vector3(record.position[0], record.position[1] + 0.53, record.position[2]), Vector3i(record.support[0], record.support[1], record.support[2]), body, false, float(record.get("turns", 0)) * PI * 0.5)
 
 ## Sweep from the player's center to the entire over-shoulder camera position.
 func _update_camera_height() -> void:
@@ -366,7 +426,7 @@ func _physics_process(delta: float) -> void:
 	if interaction_blocked and not Input.is_action_pressed("mine") and not Input.is_action_pressed("place"):
 		interaction_blocked = false
 	if sitting:
-		if world.get_block(seat_cell) == 0:
+		if not _update_seat_support():
 			_stand_up(true)
 		elif input.length_squared() > 0.0 or (Input.is_action_just_pressed("jump") and _seat_input_grace <= 0.0):
 			_stand_up()
@@ -619,6 +679,7 @@ func _update_target() -> void:
 	target_id = 0
 	target_document = null
 	target_facility = ""
+	target_hit = {}
 	outline.visible = false
 	outline.scale = Vector3.ONE
 	var center := get_viewport().get_visible_rect().size * 0.5
@@ -633,6 +694,7 @@ func _update_target() -> void:
 	if point.distance_to(global_position + Vector3(0, 1.2, 0)) > REACH:
 		mining_time = 0.0
 		return
+	target_hit = hit
 	target_cell = Vector3i((point - normal * 0.01).floor())
 	if hit.collider.has_meta("facility"):
 		target_facility = str(hit.collider.get_meta("facility"))
