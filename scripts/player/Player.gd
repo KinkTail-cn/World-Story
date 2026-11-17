@@ -169,6 +169,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event.is_action_pressed("sit"):
 		select_function(1)
+		if active_function == 1 and not sitting: _sit_on_target()
 	if event.is_action_pressed("interact") and not event.is_echo() and target_document != null:
 		document_requested.emit(target_document)
 	elif event.is_action_pressed("interact") and not event.is_echo():
@@ -248,10 +249,7 @@ func select_function(function: int) -> void:
 			return
 	active_function = clampi(function, 0, 1)
 	if active_function == 1:
-		if target_id <= 0:
-			message.emit("坐下功能：瞄准方块，按左键坐到顶面")
-		else:
-			_sit_on_target()
+		message.emit("坐下功能：瞄准任意方块，按右键坐到顶面")
 	else:
 		message.emit("挖掘 / 建造：左键挖掘，右键放置")
 	function_changed.emit(active_function, sitting)
@@ -439,8 +437,6 @@ func _physics_process(delta: float) -> void:
 		message.emit("已返回岛屿出生点")
 	_resolve_camera_collision()
 	_update_target()
-	if active_function == 1 and not interaction_blocked and Input.is_action_just_pressed("mine"):
-		_sit_on_target()
 	place_delay = maxf(0.0, place_delay - delta)
 	swing_timer = maxf(0.0, swing_timer - delta)
 	_hit_spark_cooldown = maxf(0.0, _hit_spark_cooldown - delta)
@@ -473,11 +469,11 @@ func _physics_process(delta: float) -> void:
 	else:
 		mining_time = 0.0
 		
-	if active_function == 0 and not sitting and not interaction_blocked:
+	if not sitting and not interaction_blocked:
 		if Input.is_action_just_pressed("place"):
 			_place()
 			place_delay = 0.25
-		elif Input.is_action_pressed("place") and place_delay <= 0.0:
+		elif active_function == 0 and Input.is_action_pressed("place") and place_delay <= 0.0:
 			# Holding placement may build repeatedly, but a door switches only
 			# once per press rather than oscillating open/closed under the cursor.
 			var is_door: bool = world.get("life") != null and world.life.records.get(target_facility, {}).get("kind", "") == "door"
@@ -657,7 +653,7 @@ func _update_target() -> void:
 	outline.visible = true
 
 func _mine() -> void:
-	if sitting:
+	if sitting or active_function == 1:
 		return
 	if not target_facility.is_empty():
 		var key := target_facility
@@ -723,6 +719,9 @@ func _mine() -> void:
 
 func _place() -> void:
 	if sitting:
+		return
+	if active_function == 1:
+		_sit_on_target()
 		return
 	if not target_facility.is_empty() and not Input.is_key_pressed(KEY_SHIFT):
 		facility_requested.emit(target_facility)

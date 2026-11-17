@@ -36,7 +36,11 @@ func _run() -> void:
 	var selected_cell: Vector3i = player.target_cell
 	_click(wheel.center + Vector2(125, 0))
 	await process_frame
-	assert(not paused and not wheel.visible and player.sitting, "Clicking sitting must close the wheel and sit on the selected block")
+	assert(not paused and not wheel.visible and player.active_function == 1 and not player.sitting, "Selecting sitting closes the wheel and waits for a right click")
+	for frame in range(3): await physics_frame
+	selected_cell = player.target_cell
+	await _right_click()
+	assert(player.sitting, "A right click in sitting mode sits on the aimed block")
 	assert(player.seat_cell == selected_cell and absf(player.position.y - selected_cell.y - 1.01) < 0.001)
 	assert(absf(player.visual.left_leg.rotation.x - PI * 0.5) < 0.001, "Sitting pose must extend both legs forward")
 	assert(absf(player.visual.position.y + 0.5625) < 0.001, "Hips must rest above the support block")
@@ -53,17 +57,51 @@ func _run() -> void:
 	player._unhandled_input(_action("sit"))
 	assert(not player.sitting and player.active_function == 0 and player.visual.position.y == 0.0, "F must stand and restore mining/building")
 	var cell := Vector3i(18, 5, 21)
-	for id in range(1, 9):
+	player.set_first_person(true)
+	player.rig.rotation.y = -PI * 0.5
+	player.pitch.rotation.x = 1.1
+	player._resolve_camera_collision()
+	player._update_target()
+	assert(player.target_id == 0)
+	player.select_function(1)
+	await _right_click()
+	assert(player.active_function == 1 and not player.sitting, "Sitting mode can be selected before aiming at a block and stays ready after clicking empty space")
+	player.pitch.rotation.x = -0.45
+	for id in range(1, 21):
 		world.set_block(cell, id)
 		player.position = Vector3(16.5, 5.01, 21.5)
 		player.velocity = Vector3.ZERO
 		for frame in range(3):
 			await physics_frame
-		player.target_cell = cell
-		player.target_id = id
+		assert(player.target_cell == cell and player.target_id == id, "The real camera ray must aim at every block type")
 		player.select_function(1)
-		assert(player.sitting and player.seat_cell == cell, "Every registered block must support sitting")
+		assert(not player.sitting and player.active_function == 1, "Selecting sitting must not act before the right click")
+		if id == 1:
+			Input.action_press("mine")
+			for frame in range(4): await physics_frame
+			Input.action_release("mine")
+			assert(not player.sitting and player.mined == count, "Left click in sitting mode must not sit or mine")
+		await _right_click()
+		assert(player.sitting and player.seat_cell == cell, "Right click must sit on all twenty block types, including the workbench")
+		assert(not main.facility_panel.visible and not main.hud.inventory_panel.visible, "Sitting on the workbench must not open a facility menu")
 		assert(player._stand_up(), "Standing from a clear block must succeed")
+	var original_item: Dictionary = main.inventory.bag[0].duplicate(true)
+	for held_id in [0, 207, 501, 605]:
+		main.inventory.bag[0] = {"id": held_id, "count": 2 if held_id == 605 else (0 if held_id == 0 else 1)}
+		player.select_slot(0)
+		player.health = 50.0
+		player.position = Vector3(16.5, 5.01, 21.5)
+		player.velocity = Vector3.ZERO
+		for frame in range(3): await physics_frame
+		var held_before: Dictionary = main.inventory.bag[0].duplicate(true)
+		player.select_function(1)
+		await _right_click()
+		assert(player.sitting and player.seat_cell == cell and main.inventory.bag[0] == held_before and player.placed == 0, "Sitting works with empty hands, tools, facilities and food without consuming or placing them")
+		assert(player._stand_up())
+	main.inventory.bag[0] = original_item
+	player.select_slot(0)
+	player.health = 100.0
+	player.set_first_person(false)
 	world.set_block(cell + Vector3i.UP, 5)
 	for frame in range(3):
 		await physics_frame
@@ -71,6 +109,7 @@ func _run() -> void:
 	player.target_cell = cell
 	player.target_id = world.get_block(cell)
 	player.select_function(1)
+	player._place()
 	assert(not player.sitting, "Sitting must reject occupied space above the block")
 	world.set_block(cell + Vector3i.UP, 0)
 	for frame in range(3):
@@ -78,6 +117,7 @@ func _run() -> void:
 	player.target_cell = cell
 	player.target_id = world.get_block(cell)
 	player.select_function(1)
+	player._place()
 	assert(player.sitting)
 	var seat_origin: Vector3 = player.global_position
 	var ceiling := StaticBody3D.new()
@@ -99,6 +139,7 @@ func _run() -> void:
 	player.target_cell = cell
 	player.target_id = world.get_block(cell)
 	player.select_function(1)
+	player._place()
 	assert(player.sitting)
 	Input.action_press("move_forward")
 	for frame in range(4):
@@ -109,6 +150,7 @@ func _run() -> void:
 	player.target_cell = cell
 	player.target_id = world.get_block(cell)
 	player.select_function(1)
+	player._place()
 	assert(player.sitting)
 	world.set_block(cell, 0)
 	for frame in range(5):
@@ -146,6 +188,7 @@ func _run() -> void:
 		player.target_cell = cell
 		player.target_id = 7
 		player.select_function(1)
+		player._place()
 		player.rig.rotation.y = 1.2
 		player.pitch.rotation.x = -0.2
 		for frame in range(4):
@@ -157,8 +200,23 @@ func _run() -> void:
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png("C:/Users/Qi/AppData/Local/Temp/opencode/world-story-functions.png")
 		main._input(_action("function_wheel"))
-	print("SIT_WHEEL_SMOKE_PASS: G wheel, GUI selection, input blocking, all block seats, pose, F/move exit, support removal, combined mining/building, action poses")
+	main.queue_free()
+	for frame in range(4): await process_frame
+	print("SIT_WHEEL_SMOKE_PASS: G wheel, right-click sitting on all 20 blocks, workbench priority, input blocking, pose, F/move exit, support removal, combined mining/building, action poses")
 	quit(0)
+
+func _right_click() -> void:
+	var event := InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_RIGHT
+	event.position = root.get_visible_rect().size * 0.5
+	event.global_position = event.position
+	event.pressed = true
+	Input.parse_input_event(event)
+	for frame in range(3): await physics_frame
+	event = event.duplicate()
+	event.pressed = false
+	Input.parse_input_event(event)
+	for frame in range(2): await physics_frame
 
 func _action(action: String) -> InputEventAction:
 	var event := InputEventAction.new()
